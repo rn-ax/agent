@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# List open PRs for the current repo as JSON.
+# Usage: pr-list [--all]   (default: open only; --all includes closed)
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/scm-env" ""
+
+state="open"
+[[ "${1:-}" == "--all" ]] && state="all"
+
+api "repos/$OWNER/$REPO/pulls?state=$state&limit=50" \
+| jq --arg pub "https://github.com" '
+  [ .[] | {
+    number:    .number,
+    title:     .title,
+    state:     .state,
+    head:      (.head.label // .head.ref),
+    base:      (.base.label // .base.ref),
+    mergeable: .mergeable,
+    author:    .user.login,
+    url:       "\($pub)/\(.base.repo.full_name)/pull/\(.number)",
+    updated:   (.updated_at | split("T")[0])
+  }]'

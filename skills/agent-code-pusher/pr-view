@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Show full details (metadata, body, files changed, comments) for one PR.
+# Usage: pr-view <number> [owner/repo]   (repo defaults to current repo's origin)
+set -euo pipefail
+
+number="${1:?Usage: pr-view <number> [owner/repo]}"
+
+source "$(dirname "${BASH_SOURCE[0]}")/scm-env" "${2:-}"
+
+echo "=== PR #$number ($OWNER/$REPO) ==="
+api "repos/$OWNER/$REPO/pulls/$number" \
+| jq '{
+    number, title, state,
+    head: (.head.label // .head.ref),
+    base: (.base.label // .base.ref),
+    mergeable, merged, author: .user.login,
+    url: "https://github.com/\(.base.repo.full_name)/pull/\(.number)",
+    body
+  }'
+
+echo
+echo "=== Files changed ==="
+api "repos/$OWNER/$REPO/pulls/$number/files" \
+| jq -r '.[] | "\(.status)\t\(.filename)\t+\(.additions)/-\(.deletions)"' 2>/dev/null \
+  || echo "(files endpoint unavailable)"
+
+echo
+echo "=== Comments ==="
+api "repos/$OWNER/$REPO/issues/$number/comments" \
+| jq -r '.[] | "--- \(.user.login) @ \(.created_at) ---\n\(.body)\n"'

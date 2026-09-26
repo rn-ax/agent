@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Sets OWNER, REPO from the current repo's origin (or an explicit owner/repo
+# string). Sourced by push-to-pr, pr-list, pr-view, pr-close, and
+# reap-merged-worktrees so they don't each duplicate remote-parsing logic.
+#
+# Usage: source scm-env                # infer from `git remote get-url origin`
+#        source scm-env <owner>/<repo> # infer from a bare owner/repo string
+#                                       # (no URL to parse — pr-view's/pr-close's
+#                                       #  optional explicit repo arg)
+#
+# Exposes:
+#   OWNER, REPO
+#   api "<path>"   GET, JSON out: `gh api <path>`
+
+if [[ -n "${1:-}" ]]; then
+  repo_path="$1"
+else
+  remote_url=$(git remote get-url origin 2>/dev/null) || {
+    echo "Error: not in a git repo or no 'origin' remote" >&2
+    return 1 2>/dev/null || exit 1
+  }
+  repo_path=$(echo "$remote_url" | sed -E 's|.*[:/]([^/:]+/[^/]+)$|\1|; s|\.git$||')
+fi
+
+OWNER=$(echo "$repo_path" | cut -d/ -f1)
+REPO=$(echo "$repo_path" | cut -d/ -f2)
+
+api() {
+  gh api "$1"
+}

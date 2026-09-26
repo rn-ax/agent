@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Show commit history (oneline) and diffs for a given path in the current repo.
+# Usage: path-history <path> [max-commits]
+set -euo pipefail
+
+path="${1:?Usage: path-history <path> [max-commits]}"
+max="${2:-20}"
+
+echo "=== COMMITS (${path}) ==="
+git log --oneline -n "$max" -- "$path"
+
+echo ""
+echo "=== FULL LOG WITH DIFFS ==="
+git log -p -n "$max" -- "$path"

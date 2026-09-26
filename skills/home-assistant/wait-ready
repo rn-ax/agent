@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Wait for Home Assistant core to finish starting up after a restart.
+# Checking API reachability (a 200 on /api/) is not enough -- the API can
+# respond while HA core is still NOT_RUNNING, mid-way through loading
+# integrations. Entities/config entries set up late in that sequence won't
+# exist yet even though curl already gets a clean response elsewhere.
+# This polls /api/config until state is actually RUNNING instead.
+# Usage: wait-ready
+set -euo pipefail
+
+token=$(grep '^HOME_ASSISTANT_TOKEN=' ~/.config/home-assistant/env | cut -d= -f2-)
+url=$(grep '^HOME_ASSISTANT_URL=' ~/.config/home-assistant/env | cut -d= -f2-)
+
+until curl -s -m 3 -H "Authorization: Bearer $token" "$url/api/config" 2>/dev/null | grep -q '"state":"RUNNING"'; do
+  sleep 3
+done
+echo "Home Assistant core is fully RUNNING"

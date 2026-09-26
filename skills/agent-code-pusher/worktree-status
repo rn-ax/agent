@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Show ahead/behind counts for every worktree relative to origin/main.
+# Must be run from within a git repo.
+# Usage: worktree-status
+set -euo pipefail
+
+git fetch origin --quiet
+
+git worktree list --porcelain \
+| awk '/^worktree /{path=$2} /^branch /{print path, $2}' \
+| while read -r path ref; do
+    branch="${ref#refs/heads/}"
+    [[ "$branch" == "main" ]] && continue
+
+    ahead=$(git -C "$path" rev-list --count "origin/main..HEAD" 2>/dev/null || echo "?")
+    behind=$(git -C "$path" rev-list --count "HEAD..origin/main" 2>/dev/null || echo "?")
+
+    jq -n \
+      --arg branch  "$branch" \
+      --arg path    "$path" \
+      --arg ahead   "$ahead" \
+      --arg behind  "$behind" \
+      '{branch: $branch, path: $path, ahead: ($ahead|tonumber), behind: ($behind|tonumber)}'
+  done \
+| jq -s '.'

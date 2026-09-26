@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Push the current branch and ensure a PR exists for it — creating it if
+# missing, or updating its title/description if it already exists.
+# Fetches and rebases onto origin/main first to avoid PR conflicts.
+# Prints one JSON object on stdout as the final line — {number, url, action}
+# where action is "created", "updated", or "unchanged" — everything else
+# (git/gh's own progress output) goes to stderr. e.g.:
+#   number=$(push-to-pr "title" "body" | jq -r .number)
+# Usage: push-to-pr [-f] [<title>] [<body>]
+# -f      force-with-lease (needed after a local rebase of an already-pushed branch)
+# title   PR title (defaults to the latest commit subject when creating)
+# body    PR description (left empty when creating if omitted)
+set -euo pipefail
+
+if [[ "${1:-}" == "-f" ]]; then
+  shift
+fi
+
+title="${1:-}"
+body="${2:-}"
+
+branch=$(git branch --show-current)
+if [[ -z "$branch" ]]; then
+  echo "Not on a branch (detached HEAD?)" >&2
+  exit 1
+fi
+
+source "$(dirname "${BASH_SOURCE[0]}")/scm-env" ""
+
+git fetch origin
+
+closed=$(gh pr list --state closed --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+if [[ -n "$closed" ]]; then
+  echo "Warning: PR #$closed for branch '$branch' is already closed. A new PR will be opened." >&2
+fi
+
+if git ls-remote --exit-code origin "$branch" &>/dev/null; then
+  # Branch already exists on remote — rebase rewrites history, so force is required
+  git rebase origin/main
+  git push --force-with-lease -u origin "$branch"
+else
+  git rebase origin/main
+  git push -u origin "$branch"
+fi
+
+action="unchanged"
+existing=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+if [[ -z "$existing" ]]; then
+  title="${title:-$(git log -1 --format="%s")}"
+  gh pr create --title "$title" --body "$body" --base main >&2
+  existing=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+  action="created"
+elif [[ -n "$title" || -n "$body" ]]; then
+  edit_args=()
+  [[ -n "$title" ]] && edit_args+=(--title "$title")
+  [[ -n "$body" ]] && edit_args+=(--body "$body")
+  gh pr edit "$existing" "${edit_args[@]}" >&2
+  action="updated"
+fi
+
+jq -n --argjson number "$existing" --arg url "https://github.com/$OWNER/$REPO/pull/$existing" --arg action "$action" \
+  '{number: $number, url: $url, action: $action}'

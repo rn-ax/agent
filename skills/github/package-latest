@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Find the actual latest pushed container image tag for an app, straight from
+# the GHCR package registry — not from git tags. In a monorepo CI setup where
+# a single tag/release is cut only when the *whole* build matrix succeeds,
+# while each app's image push happens inside its own per-app job and isn't
+# gated on the others, a run where only one app rebuilds and passes still
+# pushes a real image — but if some other app fails in that same run, no git
+# tag is ever cut. That leaves `git tag --list` lagging behind or silently
+# wrong for apps that weren't part of the last fully-green run.
+#
+# Assumes CalVer-style tags (YYYY.MM.DD.<run_number>) — matches monocoque's
+# tagging convention. Adjust the regex below to reuse this for a repo with a
+# different scheme.
+#
+# Requires the `read:packages` scope on `gh`'s auth token
+# (gh auth refresh -s read:packages) — GHCR's package API 403s without it.
+#
+# Usage: package-latest <app_name> [owner]   (owner defaults to rn-ax)
+# Output: one JSON object on stdout: {"app", "version", "image", "created_at"}
+set -euo pipefail
+
+APP="${1:?Usage: package-latest <app_name> [owner]}"
+OWNER="${2:-rn-ax}"
+
+gh api "orgs/$OWNER/packages/container/$APP/versions?per_page=100" |
+  jq -r --arg app "$APP" --arg owner "$OWNER" '
+    map(select(.metadata.container.tags != null)
+        | . as $v
+        | $v.metadata.container.tags[]
+        | select(test("^[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}\\.[0-9]+$"))
+        | {created_at: $v.created_at, version: .})
+    | max_by(.created_at)
+    | if . == null then
+        error("no CalVer-tagged package found for \($app)")
+      else
+        {app: $app, version: .version, image: "ghcr.io/\($owner)/\($app):\(.version)", created_at: .created_at}
+      end
+  '

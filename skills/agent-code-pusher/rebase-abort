@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Abort an in-progress rebase.
+# Usage: rebase-abort [-C <dir>]
+set -euo pipefail
+
+git_dir_args=()
+if [[ "${1:-}" == "-C" ]]; then
+  git_dir_args=(-C "$2")
+fi
+
+git ${git_dir_args[@]+"${git_dir_args[@]}"} rebase --abort
