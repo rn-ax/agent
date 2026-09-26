@@ -19,7 +19,7 @@ This is the index for everything running across this user's home infrastructure.
 | Baserow | Airtable-style data store — hit paywalled features (unique constraint, row coloring) | app on TrueNAS, `baserow.rn.ax` / `truenas.lan:30163` (LAN, for API) | `baserow` |
 | Saltcorn | No-code app builder, genuinely no paid tier — chosen after NocoDB/Baserow both gated basic features | Custom App on TrueNAS, `truenas.lan:31399` (no public tunnel route yet) | `saltcorn` |
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
-| Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | noted inline in `truenas`/`windmill`, no dedicated skill yet |
+| Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
 | monocoque | Separate Django monorepo, several custom apps (`newshound`, etc.), deployed to TrueNAS too | repo at `~/Projects/monocoque` | its own repo docs, not a home-infra skill |
 | agent-tasks (`atask`) | Cross-session task queue, not a home system but referenced constantly when scoping multi-session work | `~/Projects/agent-tasks` | `todo` skill |
 
