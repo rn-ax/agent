@@ -1,0 +1,5 @@
+_extends: poppycock
+
+repository:
+  name: agent
+  description: Claude Code skills for the rn-ax stack, symlinked into ~/.claude/skills
