@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Create a git worktree at ~/Projects/.worktrees/<repo>/<branch> on a new branch.
+# Shared across repos (not nested inside the repo itself) so that a session
+# rooted at ~/Projects can reach any repo's worktrees the same way it reaches
+# its own — see references/cross-repo-work.md.
+# Always anchored to the main repo root, so this is safe to call from inside a worktree.
+# Always fetches origin and bases the new branch on origin/main.
+# Usage: new-worktree <branch-name>
+set -euo pipefail
+
+branch="${1:?Usage: new-worktree <branch-name>}"
+
+common_dir=$(git rev-parse --git-common-dir)
+root=$(cd "$common_dir/.." && pwd)
+path="$HOME/Projects/.worktrees/$(basename "$root")/$branch"
+
+if [[ -d "$path" ]]; then
+  echo "Worktree already exists at $path" >&2
+  exit 1
+fi
+
+git -C "$root" fetch origin
+
+mkdir -p "$(dirname "$path")"
+git worktree add "$path" -b "$branch" origin/main
+
+while IFS= read -r -d '' envfile; do
+  rel="${envfile#"$root"/}"
+  mkdir -p "$path/$(dirname "$rel")"
+  ln -s "$envfile" "$path/$rel"
+done < <(find "$root" -name ".env" -not -path "*/node_modules/*" -not -path "*/.venv/*" -print0)
+
+# Copy (never symlink) each app's persistent dev data dir: a worktree needs
+# its own writable copy so concurrent worktrees never share one SQLite file,
+# and so a branch mid-migration can't corrupt another branch's data. The main
+# checkout's copy is the one true accumulating "golden" copy and is never
+# touched here. Only fires for apps that declare DATA_DIR in their mise.toml,
+# at its conventional path (config_root)/data.
+while IFS= read -r -d '' misefile; do
+  appdir=$(dirname "$misefile")
+  datadir="$appdir/data"
+  if grep -q "DATA_DIR" "$misefile" && [[ -d "$datadir" ]]; then
+    rel="${datadir#"$root"/}"
+    mkdir -p "$path/$(dirname "$rel")"
+    cp -a "$datadir" "$path/$rel"
+  fi
+done < <(find "$root" -name "mise.toml" -not -path "*/node_modules/*" -not -path "*/.venv/*" -print0)
+
+# Give each worktree its own real venv rather than symlinking the shared one.
+# uv's workspace editable-install finder bakes the CURRENT working directory's
+# absolute source paths into site-packages on every `uv sync`/`uv run`, so a
+# venv shared across worktrees ends up pointed at whichever worktree synced
+# most recently — silently repointing every other worktree's imports and
+# templates at a sibling worktree's source tree. `uv sync` reuses the global
+# package cache (~/.cache/uv), so recreating the venv per worktree is normally
+# a sub-second operation rather than a full reinstall.
+if [[ -f "$root/uv.lock" ]] && command -v uv >/dev/null 2>&1; then
+  (cd "$path" && uv sync --frozen --quiet)
+fi
+
+if [[ -f "$path/mise.toml" ]]; then
+  mise trust "$path/mise.toml" 2>/dev/null || true
+fi
+
+echo "$path"

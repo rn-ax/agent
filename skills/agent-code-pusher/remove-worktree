@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Remove a worktree and delete its branch, then pull main to keep it current.
+# Usage: remove-worktree <branch-name>
+set -euo pipefail
+
+branch="${1:?Usage: remove-worktree <branch-name>}"
+common_dir=$(git rev-parse --git-common-dir)
+root=$(cd "$common_dir/.." && pwd)
+path="$HOME/Projects/.worktrees/$(basename "$root")/$branch"
+
+git worktree remove "$path" --force
+git -C "$root" pull --ff-only origin main
+git -C "$root" branch -d "$branch" 2>/dev/null || true

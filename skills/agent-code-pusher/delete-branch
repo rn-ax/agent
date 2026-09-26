@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Delete a branch locally and on origin.
+# Safe to run from inside a worktree — never deletes the current branch.
+# Usage: delete-branch <branch-name>
+set -euo pipefail
+
+branch="${1:?Usage: delete-branch <branch-name>}"
+
+common_dir=$(git rev-parse --git-common-dir)
+root=$(cd "$common_dir/.." && pwd)
+
+current=$(git -C "$root" branch --show-current)
+if [[ "$current" == "$branch" ]]; then
+  echo "Cannot delete the currently checked-out branch '$branch'" >&2
+  exit 1
+fi
+
+git -C "$root" branch -D "$branch" 2>/dev/null && echo "Deleted local branch $branch" || echo "No local branch $branch"
+git -C "$root" push origin --delete "$branch" 2>/dev/null && echo "Deleted remote branch $branch" || echo "No remote branch $branch"

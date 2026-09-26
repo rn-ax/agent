@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Stage the given files (or everything, if none given) and create a commit.
+# Usage: git-commit <message> [file ...]
+set -euo pipefail
+
+message="${1:?Usage: git-commit <message> [file ...]}"
+shift
+
+if [[ $# -gt 0 ]]; then
+  git add -- "$@"
+else
+  git add --all
+fi
+git commit -m "$message"

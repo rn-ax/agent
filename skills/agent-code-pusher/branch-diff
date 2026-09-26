@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Show commits and diff for a worktree branch relative to main.
+# Usage: branch-diff <worktree-path>
+set -euo pipefail
+
+path="${1:?Usage: branch-diff <worktree-path>}"
+
+echo "=== COMMITS ==="
+git -C "$path" log --oneline main..HEAD
+
+echo ""
+echo "=== DIFF ==="
+git -C "$path" diff main...HEAD

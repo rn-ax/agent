@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Send one ad-hoc command over HA's websocket API and print the raw result.
+# Usage: ws-call '<json payload, without "id">'
+#   e.g. ws-call '{"type": "config_entries/update", "entry_id": "...", "title": "..."}'
+set -euo pipefail
+
+payload="${1:?Usage: ws-call '<json payload, without "id">'}"
+
+skill_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+venv_dir="$skill_dir/.venv"
+
+if [ ! -d "$venv_dir" ]; then
+  python3 -m venv "$venv_dir"
+  "$venv_dir/bin/pip" install -q websockets
+fi
+
+HOME_ASSISTANT_TOKEN=$(grep '^HOME_ASSISTANT_TOKEN=' ~/.config/home-assistant/env | cut -d= -f2-)
+HOME_ASSISTANT_URL=$(grep '^HOME_ASSISTANT_URL=' ~/.config/home-assistant/env | cut -d= -f2-)
+export HOME_ASSISTANT_TOKEN HOME_ASSISTANT_URL
+
+"$venv_dir/bin/python3" "$skill_dir/ws_call.py" "$payload"

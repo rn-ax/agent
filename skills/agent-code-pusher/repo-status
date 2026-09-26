@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Quick overview of a repo's state as JSON: remote, current branch, working-
+# tree cleanliness, local branches with tracking info, and recent commits.
+# Replaces the ad hoc `git remote -v && git status && git branch -vv &&
+# git log` combo.
+# Usage: repo-status [path]   (defaults to current directory)
+set -euo pipefail
+
+root="${1:-.}"
+
+remote=$(git -C "$root" remote get-url origin 2>/dev/null || echo "")
+branch=$(git -C "$root" branch --show-current)
+
+status_lines=$(git -C "$root" status --porcelain)
+clean=true
+[[ -n "$status_lines" ]] && clean=false
+status_json=$(echo "$status_lines" | jq -R 'select(length>0)' | jq -s '.')
+
+branches_json=$(git -C "$root" branch -vv --format='%(refname:short)|%(upstream:short)|%(upstream:track)|%(objectname:short)|%(subject)' \
+  | jq -R 'split("|") | {branch: .[0], upstream: .[1], track: .[2], commit: .[3], subject: .[4]}' \
+  | jq -s '.')
+
+log_json=$(git -C "$root" log --oneline -5 --format='%h|%s' \
+  | jq -R 'split("|") | {commit: .[0], subject: .[1]}' \
+  | jq -s '.')
+
+jq -n \
+  --arg remote "$remote" \
+  --arg branch "$branch" \
+  --argjson clean "$clean" \
+  --argjson status "$status_json" \
+  --argjson branches "$branches_json" \
+  --argjson log "$log_json" \
+  '{remote: $remote, branch: $branch, clean: $clean, status: $status, branches: $branches, log: $log}'

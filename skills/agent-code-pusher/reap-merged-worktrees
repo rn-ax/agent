@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Remove worktrees (and their local branches) whose PR has already merged.
+# Manually triggered cleanup — nothing runs this automatically. Only touches
+# worktrees under ~/Projects/.worktrees/<repo> with a confirmed-merged PR;
+# anything open, unpushed, or closed-without-merging is left alone.
+# Usage: reap-merged-worktrees   (run from anywhere inside the repo)
+# Prints a JSON array of {branch, pr} for everything it removed.
+set -euo pipefail
+
+common_dir=$(git rev-parse --git-common-dir)
+root=$(cd "$common_dir/.." && pwd)
+wt_root="$HOME/Projects/.worktrees/$(basename "$root")"
+
+cd "$root"
+source "$(dirname "${BASH_SOURCE[0]}")/scm-env" ""
+
+git fetch origin --quiet
+
+reaped="[]"
+
+if [[ -d "$wt_root" ]]; then
+  closed_prs=$(api "repos/$OWNER/$REPO/pulls?state=closed&limit=100")
+
+  while read -r path ref; do
+    branch="${ref#refs/heads/}"
+    branch_sha=$(git rev-parse "$branch")
+
+    # Match on the branch's tip commit sha, not its name — GitHub's
+    # `.head.label` is always "owner:branch" even for same-repo PRs, so it
+    # doesn't reliably match $branch, while `.head.sha` is the commit that
+    # was actually PR'd. The list endpoint also leaves `.merged` null (only
+    # the single-PR detail endpoint sets it) — `.merged_at` is the field the
+    # list endpoint reliably sets for a merged PR.
+    pr_number=$(jq -r --arg sha "$branch_sha" \
+      '[.[] | select(.head.sha == $sha) | select(.merged_at != null)] | last | .number // empty' \
+      <<<"$closed_prs")
+    [[ -n "$pr_number" ]] || continue
+
+    echo "Reaping merged worktree: $branch (PR #$pr_number)" >&2
+    git worktree remove "$path" --force
+    git branch -D "$branch" 2>/dev/null || true
+
+    reaped=$(jq -c --arg branch "$branch" --argjson pr "$pr_number" '. + [{branch: $branch, pr: $pr}]' <<<"$reaped")
+  done < <(git worktree list --porcelain \
+    | awk -v wt="$wt_root" '/^worktree /{path=$2} /^branch /{if (index(path, wt) == 1) print path, $2}')
+fi
+
+git pull --ff-only origin main >&2
+
+echo "$reaped"

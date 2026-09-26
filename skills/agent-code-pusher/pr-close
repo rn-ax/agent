@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Close a PR, optionally leaving a comment first.
+# Usage: pr-close <number> [comment] [owner/repo]
+set -euo pipefail
+
+number="${1:?Usage: pr-close <number> [comment] [owner/repo]}"
+comment="${2:-}"
+
+source "$(dirname "${BASH_SOURCE[0]}")/scm-env" "${3:-}"
+
+if [[ -n "$comment" ]]; then
+  gh pr comment "$number" --repo "$OWNER/$REPO" --body "$comment" >&2
+fi
+gh pr close "$number" --repo "$OWNER/$REPO" >&2
+
+jq -n --argjson number "$number" '{number: $number, state: "closed"}'

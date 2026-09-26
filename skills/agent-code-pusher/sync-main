@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Fetch origin and reset local main to origin/main.
+# Safe to run from inside a worktree — operates on the main checkout.
+# Usage: sync-main
+set -euo pipefail
+
+common_dir=$(git rev-parse --git-common-dir)
+root=$(cd "$common_dir/.." && pwd)
+
+git -C "$root" fetch origin
+git -C "$root" checkout main
+git -C "$root" reset --hard origin/main
+echo "main is now at $(git -C "$root" rev-parse --short HEAD)"
