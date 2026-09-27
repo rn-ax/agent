@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Authenticated Saltcorn REST API wrapper, using this account's Saltcorn
+# token and base URL (the "Saltcorn" item in the "Agent" 1Password vault;
+# see the `rn-config` skill for the item conventions this follows). Always
+# uses the item's first URL (the LAN one) — its other URL, the public
+# salt.rn.ax, sits behind Cloudflare Access, so a bearer-token call can't
+# reach it at all.
+# Usage: sc-api <method> <path> [curl-args...]
+#   sc-api GET /api/some_table
+#   sc-api POST /api/some_table -d '{"field": "value"}'
+#
+# <path> is relative to <base_url> and must start with /.
+set -euo pipefail
+
+method="${1:?Usage: sc-api <method> <path> [curl-args...]}"
+path="${2:?Usage: sc-api <method> <path> [curl-args...]}"
+shift 2
+
+item_json="$(~/tasks/op-service-account item get Saltcorn --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
+base_url="${base_url%/}"
+token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+
+curl -sS -X "$method" "${base_url}${path}" \
+	-H "Authorization: Bearer $token" \
+	-H "Content-Type: application/json" \
+	"$@"
