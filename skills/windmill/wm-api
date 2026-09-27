@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Authenticated Windmill REST API wrapper, using this account's Windmill
-# token, base URL, and workspace (the "Windmill" item in the "Claude"
+# token, base URL, and workspace (the "Windmill" item in the "Agent"
 # 1Password vault).
 # Usage: wm-api <method> <path> [curl-args...]
 #   wm-api GET /scripts/list?per_page=3
@@ -13,9 +13,9 @@ method="${1:?Usage: wm-api <method> <path> [curl-args...]}"
 path="${2:?Usage: wm-api <method> <path> [curl-args...]}"
 shift 2
 
-base_url="$(~/tasks/op-service-account item get Windmill --vault Claude --fields "label=base url" --reveal)"
-workspace="$(~/tasks/op-service-account item get Windmill --vault Claude --fields "label=workspace" --reveal)"
-token="$(~/tasks/op-service-account item get Windmill --vault Claude --fields label=password --reveal)"
+base_url="$(~/tasks/op-service-account item get Windmill --vault Agent --fields "label=base url" --reveal)"
+workspace="$(~/tasks/op-service-account item get Windmill --vault Agent --fields "label=workspace" --reveal)"
+token="$(~/tasks/op-service-account item get Windmill --vault Agent --fields label=password --reveal)"
 
 curl -sS -X "$method" "${base_url}/api/w/${workspace}${path}" \
 	-H "Authorization: Bearer $token" \
