@@ -11,9 +11,9 @@ This is the accumulating knowledge base for the user's self-hosted Saltcorn inst
 
 Self-hosted on TrueNAS (`truenas.lan`) as a **Custom App** (`custom_app: true` + a hand-written `custom_compose_config_string`, not a catalog app) — installed 2026-09-20. See the `truenas` skill's general custom-app playbook and `apps.md`'s Saltcorn section for the install incidents (Postgres 18 mount convention, the image's default command just printing CLI help and exiting unless `serve --addschema` is passed explicitly, `app.update` needing a follow-up `app.redeploy`).
 
-Only reachable on the LAN so far — `http://truenas.lan:31399`. No public Cloudflare Tunnel route/Access app set up yet (unlike Windmill/Baserow/NocoDB).
+Reachable on the LAN at `http://truenas.lan:31399`, and publicly at `https://salt.rn.ax` via Cloudflare Tunnel. That public hostname sits behind **Cloudflare Access** (confirmed: a plain request 302s to a `rutinerad.cloudflareaccess.com/cdn-cgi/access/login/...` page) — same as `windmill.rn.ax`, not a plain Tunnel route like Baserow/NocoDB. A bearer-token API call can't get through Access on its own; it only works over the LAN URL until a service-token bypass (see the `windmill` skill's Public HTTP-triggered flows section for the general mechanism) is set up for Saltcorn too.
 
-API credentials live in `~/.config/saltcorn/env` (mode 600): `SALTCORN_BASE_URL`, `SALTCORN_TOKEN`. One token per user (resettable, invalidates the previous one).
+API credentials live in the "Saltcorn" item in the "Agent" 1Password vault (see the `rn-config` skill for the general 1Password item/field conventions). Use `sc-api <method> <path> [curl-args...]` (this skill's own directory) for an already-authenticated REST call, e.g. `sc-api GET /api/<table_name>` — this always uses the item's LAN URL since the public one is Access-gated. One token per user (resettable, invalidates the previous one).
 
 ## Why this exists alongside Baserow
 

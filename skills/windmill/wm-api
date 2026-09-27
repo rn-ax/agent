@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Authenticated Windmill REST API wrapper, using this account's Windmill
-# token, base URL, and workspace (the "Windmill" item in the "Agent"
-# 1Password vault).
+# token, workspace, and base URL (the "Windmill" item in the "Agent"
+# 1Password vault; see the `rn-config` skill for the item conventions this
+# follows). Always uses the item's first URL — currently its only one, the
+# LAN address, since the public windmill.rn.ax is Cloudflare Access-gated
+# and a bearer-token call can't reach it (see this skill's Public
+# HTTP-triggered flows section for the actual public-access mechanism).
 # Usage: wm-api <method> <path> [curl-args...]
 #   wm-api GET /scripts/list?per_page=3
 #   wm-api POST /jobs/run_wait_result/f/reminders/invoice_email -d '{"from": "..."}'
@@ -13,9 +17,11 @@ method="${1:?Usage: wm-api <method> <path> [curl-args...]}"
 path="${2:?Usage: wm-api <method> <path> [curl-args...]}"
 shift 2
 
-base_url="$(~/tasks/op-service-account item get Windmill --vault Agent --fields "label=base url" --reveal)"
-workspace="$(~/tasks/op-service-account item get Windmill --vault Agent --fields "label=workspace" --reveal)"
-token="$(~/tasks/op-service-account item get Windmill --vault Agent --fields label=password --reveal)"
+item_json="$(~/tasks/op-service-account item get Windmill --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
+base_url="${base_url%/}"
+token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+workspace="$(jq -r '.fields[] | select(.id=="workspace") | .value' <<<"$item_json")"
 
 curl -sS -X "$method" "${base_url}/api/w/${workspace}${path}" \
 	-H "Authorization: Bearer $token" \
