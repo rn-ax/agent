@@ -21,6 +21,7 @@ This is the index for everything running across this user's home infrastructure.
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
 | Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
 | monocoque | Separate Django monorepo, several custom apps (`newshound`, etc.), deployed to TrueNAS too | repo at `~/Projects/monocoque` | its own repo docs, not a home-infra skill |
+| Contabo hosts | Two VPS boxes running self-hosted GitHub/Gitea Actions runners + a few small apps; reach TrueNAS directly over Cloudflare WARP | `contabo-1`/`contabo-2`, IaC at `~/Projects/rn-infra` | `contabo-hosts` |
 | agent-tasks (`atask`) | Cross-session task queue, not a home system but referenced constantly when scoping multi-session work | `~/Projects/agent-tasks` | `todo` skill |
 
 ## Topology notes that matter across systems
@@ -37,3 +38,4 @@ This is the index for everything running across this user's home infrastructure.
 - **Windmill ↔ Home Assistant is not wired up yet**, but both expose real APIs (Home Assistant's REST/websocket API is documented in its own skill) — worth considering for any automation whose logic is more complex than what HA's own automation engine handles well, or as a trigger source in the other direction. Remember the VLAN boundary above before assuming reachability.
 - **`monocoque`'s `newshound` app may be replaceable by a Windmill flow** — atask 246 tracks that analysis (what it actually does, whether a scheduled flow is the right shape given it might need to serve a live RSS endpoint rather than run as a batch job).
 - **Baserow vs. Saltcorn as the "real" data store is still being decided** — Baserow works but has known paywalled features; Saltcorn has no paywall risk but a fundamentally different UI (app-builder, not spreadsheet-grid, until the Tabulator plugin's grid view is actually set up and proven out). Don't assume either has "won" without checking how that settled.
+- **Contabo boxes have a direct path to TrueNAS's LAN services** via Cloudflare WARP (see `contabo-hosts`) — any private repo's CI that needs to reach something on TrueNAS (Windmill, etc.) should run on a Contabo self-hosted runner rather than a GitHub-hosted one going through a public Access-gated hostname.
