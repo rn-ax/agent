@@ -101,6 +101,37 @@ Config entry `01JCETA417DYYQXTPSD48Y4MFG`, server "TrueNAS" at `192.168.1.142:32
 
 **Reauthenticating through the UI can itself crash** with a `StopIteration`/`RuntimeError` inside `plex/server.py`'s `_connect_with_token` (`homeassistant.components.plex` "Unknown error connecting to Plex server") — this happens when the freshly-authenticated plex.tv account's server resource list doesn't contain a server matching the config entry's stored `clientIdentifier`. Confirmed this occurs when the reauth flow's Plex account (or its resource-list timing) doesn't line up with the account that actually owns/shares the "TrueNAS" server. If "Reauthenticate" hits this crash, don't keep retrying the same repair flow — remove the Plex integration entirely and re-add it fresh (Settings → Devices & Services → Add Integration → Plex → sign in), which goes through full server discovery instead of matching against the old stored identifier. Double-check which Plex.tv account is used during sign-in.
 
+## Dashboards / Lovelace
+
+**Editing a storage-mode dashboard programmatically**: don't hand-edit `.storage/lovelace.lovelace` while HA is running — reads can catch a stale pre-flush snapshot (the Store's save is debounced by a few seconds; the same lag applies to `core.device_registry`/`core.entity_registry` — verify a just-made registry change over the live websocket API, e.g. `config/device_registry/list`, not by cating the file right after). Fetch and save the real config over the websocket API instead: `ws-call '{"type": "lovelace/config"}'` returns the full config (all views/sections/cards) for the default dashboard; mutate the Python dict and send it back with `{"type": "lovelace/config/save", "config": <the whole modified config>}`. `ws_call.py`'s single ad-hoc call doesn't fit a fetch-then-mutate-then-save round trip — write a one-off script using the same connect/auth pattern as `ws_call.py` (see its source) instead of trying to chain multiple `ws-call` invocations by hand. Non-default dashboards take a `"url_path"` key alongside `"type"` in both calls.
+
+**`flex-table-card`** (HACS plugin, `custom-cards/flex-table-card` — install via `hacs-install custom-cards/flex-table-card plugin`) turns a sensor's list-valued attribute into an actual sortable table, which is the standard fit whenever a sensor exposes `{"some_attr": [{...}, {...}]}` for display. Config shape:
+```yaml
+type: custom:flex-table-card
+entities:
+  include: sensor.some_sensor
+columns:
+  - name: Column Label
+    attr_as_list: some_attr   # the list-valued attribute name
+    modify: x.field_name      # x is each list item; can be a JS expression, e.g. x.a + x.b
+sort_by: field_name-          # trailing '-' = descending
+```
+`attr_as_list` is what expands the list into rows — without it, `flex-table-card`'s default mode treats each *entity* (via `entities.include` as a regex) as one row instead, which doesn't apply here.
+
+**Collapsible content without a new plugin**: a plain built-in `markdown` card renders raw HTML, including a `<details><summary>...</summary>...</details>` block — this is enough for a "click to expand" section (e.g. a long history table) with no extra HACS card. A markdown table needs a blank line before and after it inside the `<details>` block, same as top-level CommonMark. The card's `content:` field is itself templated live (Jinja), so a `{% for %}` loop over a sensor attribute works directly inside it — write the template to a plain string first and preview it with `POST /api/template {"template": "..."}` before pasting it into the dashboard, since a spacing mistake silently breaks the table rather than erroring.
+
+**`apexcharts-card`** (HACS plugin, `RomRider/apexcharts-card`) is the fit for an actual line/bar chart driven by a sensor's list-valued attribute, via its `data_generator` option — a JS function body (as a YAML string) that returns `[timestamp_ms, value][]`:
+```yaml
+type: custom:apexcharts-card
+graph_span: 90d      # must cover the actual data range; card-level, no per-series override
+series:
+  - entity: sensor.some_sensor
+    type: column      # column = vertical bars ("bar" is horizontal in ApexCharts' own terms); line/area also supported
+    data_generator: |
+      return entity.attributes.some_attr.map(w => [new Date(w.some_date_field).getTime(), w.some_value_field]);
+```
+`data_generator` bypasses the card's normal history-fetch/caching entirely, so nothing needs to be recorded to long-term statistics for this to work — it just re-reads the entity's live attribute on every update.
+
 ## General Home Assistant help
 
 Once the instance location and auth are known, standard ways to help:
