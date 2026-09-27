@@ -7,6 +7,14 @@ set -euo pipefail
 common_dir=$(git rev-parse --git-common-dir)
 root=$(cd "$common_dir/.." && pwd)
 
+if [ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]; then
+	echo "sync-main: $root has uncommitted changes to tracked files — refusing to reset --hard and discard them." >&2
+	echo "This can happen even with no direct edits here: some repos symlink live-editable files (e.g. ~/.claude/skills/*) straight into this checkout." >&2
+	git -C "$root" status --short >&2
+	echo "Commit or stash these first (see the worktree skill's stash-with-a-unique-tag convention), then retry." >&2
+	exit 1
+fi
+
 git -C "$root" fetch origin
 git -C "$root" checkout main
 git -C "$root" reset --hard origin/main
