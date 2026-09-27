@@ -37,6 +37,10 @@ To verify a bypass is actually live: `curl -H "CF-Access-Client-Id: ..." -H "CF-
 - A Worker's actual bindings (secrets/vars) don't always match what the source code references — verify after every deploy with `GET https://api.cloudflare.com/client/v4/accounts/<acct>/workers/scripts/<name>/bindings`, not just a successful `wrangler deploy` exit code. A Worker has shipped once with a secret referenced in code but never actually bound, which would have thrown on first real use.
 - Worker source for this account's Workers lives in the `rn-ax/workers` GitHub repo (see `github` skill for the org's repo-naming convention) — see the `windmill` skill for what's actually deployed there and why.
 
+## WAF / Bot Fight Mode blocking non-browser clients
+
+The `rn.ax` zone's Bot Fight Mode / WAF can block non-browser clients (a feed validator, a webhook source's fetcher, etc.) with a 403 at Cloudflare's edge, before the request ever reaches the origin/Worker — invisible to browser-like tools (curl, WebFetch) since the block is IP/TLS-fingerprint based, not User-Agent based, so it can't be reproduced by spoofing headers from an unflagged network. Fix directly in the Cloudflare dashboard (Security → WAF) rather than via API — the token in `~/.config/cloudflare/env` has no Zone Settings or Firewall/WAF read/edit scope. Any new public endpoint meant for non-browser bots to poll (a feed reader, a validator, a webhook source) should get the same exemption up front rather than waiting for a report. Confirmed case: this blocked the JSON Feed validator (and likely Feedbin's fetcher) from reaching `wm.rn.ax`'s `feeds/` paths (see the `windmill` skill for what's served there) until the exemption was added.
+
 ## GitHub Actions secrets for Cloudflare credentials
 
 See the `github` skill's note on org-level secrets not reaching private repos on GitHub's Free plan — this bit a Cloudflare Workers deploy token directly (`rn-ax/workers`, a private repo), so it's a real trap for any Cloudflare credential a CI workflow needs, not just a theoretical one.
