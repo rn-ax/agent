@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Authenticated Cloudflare REST API wrapper, using cf-token for credentials.
+# Authenticated Cloudflare REST API wrapper, using this account's Cloudflare
+# API Token (the "Cloudflare" item in the "Claude" 1Password vault).
 # Usage: cf-api <method> <path> [curl-args...]
 #   cf-api GET /zones/f63c5a76e0abf4d2fe0ed250f9346a11/rulesets/phases/http_request_firewall_custom/entrypoint
 #   cf-api POST /zones/f63c5a76e0abf4d2fe0ed250f9346a11/dns_records -d '{"type":"A", ...}'
@@ -11,8 +12,7 @@ method="${1:?Usage: cf-api <method> <path> [curl-args...]}"
 path="${2:?Usage: cf-api <method> <path> [curl-args...]}"
 shift 2
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-token="$("$script_dir/cf-token")"
+token="$(~/tasks/op-service-account item get Cloudflare --vault Claude --fields label=password --reveal)"
 
 curl -sS -X "$method" "https://api.cloudflare.com/client/v4${path}" \
 	-H "Authorization: Bearer $token" \
