@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Print this account's Cloudflare API token (the "Cloudflare" 1Password item
+# in the "Claude" vault) to stdout. Never echo or log the result — pass it
+# straight into an Authorization header (see cf-api) or another tool's env.
+#
+# Usage: cf-token
+set -euo pipefail
+
+exec ~/tasks/op-service-account item get Cloudflare --vault Claude --fields label=password --reveal

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Authenticated Cloudflare REST API wrapper, using cf-token for credentials.
+# Usage: cf-api <method> <path> [curl-args...]
+#   cf-api GET /zones/f63c5a76e0abf4d2fe0ed250f9346a11/rulesets/phases/http_request_firewall_custom/entrypoint
+#   cf-api POST /zones/f63c5a76e0abf4d2fe0ed250f9346a11/dns_records -d '{"type":"A", ...}'
+#
+# <path> is relative to https://api.cloudflare.com/client/v4 and must start with /.
+set -euo pipefail
+
+method="${1:?Usage: cf-api <method> <path> [curl-args...]}"
+path="${2:?Usage: cf-api <method> <path> [curl-args...]}"
+shift 2
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+token="$("$script_dir/cf-token")"
+
+curl -sS -X "$method" "https://api.cloudflare.com/client/v4${path}" \
+	-H "Authorization: Bearer $token" \
+	-H "Content-Type: application/json" \
+	"$@"
