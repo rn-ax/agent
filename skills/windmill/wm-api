@@ -21,7 +21,7 @@ item_json="$(~/tasks/op-service-account item get Windmill --vault Agent --format
 base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
 base_url="${base_url%/}"
 token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
-workspace="$(jq -r '.fields[] | select(.id=="workspace") | .value' <<<"$item_json")"
+workspace="$(jq -r '.fields[] | select(.label=="workspace") | .value' <<<"$item_json")"
 
 curl -sS -X "$method" "${base_url}/api/w/${workspace}${path}" \
 	-H "Authorization: Bearer $token" \
