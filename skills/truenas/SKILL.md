@@ -15,6 +15,8 @@ Reachable at `truenas.lan` (`192.168.1.142`) on the home LAN. SSH via the `truen
 
 SSH access is configured via **System → Services → SSH** (Running, Start Automatically enabled) and **Credentials → Local Users → `admin` → SSH Public Key**.
 
+**For an ad-hoc middleware API call from an agent session, use `tn-api <method> [params-json]`** (this skill's own directory) rather than hand-crafting `ssh truenas "sudo midclt call ..."` or juggling a TrueNAS API key — e.g. `tn-api app.query` or `tn-api app.query '[["id","=","portal"]]'`. It wraps the exact same `ssh truenas sudo midclt call` access any admin troubleshooting session already uses, with the method/params shell-quoted safely. This exists because a TrueNAS API key is revocable and gets auto-revoked on "incorrect use" (confirmed 2026-10-01: a key shared with CI's `truenas-deploy` action got revoked mid-session by unrelated API-key debugging, which briefly put that CI pipeline's own credential at risk) — SSH root-via-sudo access has no such revocation risk. This is for interactive/agent-session queries only: a script meant to run unattended on a system with no SSH access of its own (a Windmill job, running in a container) still needs the real websocket+`API_KEY_PLAIN` flow directly, e.g. `rn-ax/windmill`'s `f/truenas/prune_images.py`.
+
 ## Apps / Docker architecture
 
 TrueNAS SCALE's "Apps" feature is a `middlewared`-managed wrapper around a real Docker daemon. Key pieces, useful for troubleshooting rather than just clicking around the UI:
