@@ -79,3 +79,22 @@ The `agent` workspace's scripts/flows/resources are mirrored to **`rn-ax/windmil
 **Retention / Instance object storage**: both are Enterprise-Edition-gated settings visible in the setup wizard even on the Community Edition this instance runs. Retention silently caps at 30 days regardless of what's entered; instance object storage (S3/Azure-backed log offload + shared Python/Go dependency cache across workers) does nothing without a paid license. Both left at defaults/blank.
 
 **Planned, not yet built**: delegating actual job *execution* to external Windmill worker containers on the Contabo hosts (`contabo-1`/`contabo-2`, see the `contabo-hosts` skill), with TrueNAS staying a lightweight coordinator (server + Postgres only). Checked what this actually needs (2026-09-27), and it's not just a worker deploy: `docker ps` on TrueNAS shows `ix-windmill-postgres-1` publishes no host port at all (`5432/tcp`, no `0.0.0.0:...->5432` mapping) — only Caddy is (`30155-30156`). Postgres only exists on the `ix-windmill` Docker network today, unreachable from outside the TrueNAS host regardless of network path. The Contabo boxes' confirmed WARP route to TrueNAS's LAN IP (see `contabo-hosts`) gets a packet to the *host*, but that's moot until Postgres is actually published on it (or reached some other way, e.g. an SSH tunnel) — don't assume the network path alone clears this; it doesn't.
+
+## CLI access from an agent session (incl. background jobs)
+
+The `wmill` CLI isn't preinstalled in a fresh agent session/sandbox — confirmed absent (`command not found`) even though it's used interactively elsewhere. It installs cleanly and fast via `npm install -g windmill-cli@<version>` (pin to the version this repo's `package.json`/lockfiles already use, e.g. `1.820.0` as of 2026-10 — `npx windmill-cli@latest --version` also works for a one-off check without installing). Network access to npm and to `truenas.lan:30155` both work fine from an agent session on this user's own Mac — don't assume either is blocked without trying.
+
+Configure the CLI workspace profile straight from the same 1Password item `wm-api` uses (see "Instance" above), no manual URL/token entry needed:
+
+```bash
+item_json="$(~/tasks/op-service-account item get Windmill --vault Agent --format json --reveal)"
+base_url="$(echo "$item_json" | jq -r '.urls[0].href')"
+workspace="$(echo "$item_json" | jq -r '.fields[] | select(.label=="workspace") | .value')"
+token="$(echo "$item_json" | jq -r '.fields[] | select(.id=="password") | .value')"
+wmill workspace add agent "$workspace" "$base_url" --token "$token"
+wmill workspace switch agent
+```
+
+Once configured, the full CLI is usable for real validation, not just file-writing: `wmill script preview` for standalone scripts (executes for real against the live workspace — confirmed safe for idempotent writes like a scraper into its own dedicated SQLite file), `wmill app lint <app_folder>` for a non-interactive structure+bundle check of a raw app (no dev server needed), and `wmill generate-metadata` for real lock/schema generation. See the `raw-app` skill's note on one specific gotcha this surfaced: an app backend runnable's preview resolves a cross-folder `/f/app-models/...` import against the **deployed** remote copy, not the local worktree file, even though a plain top-level script's preview resolves the same import locally — so previewing a new app's backend runnables can require a narrow `wmill script push <app-model-file>` first (deploying just that one dependency, not the app), per that skill's "deploy exactly the referenced dependency" guidance.
+
+**Local preview, direct mode, from a background job — just works.** `wmill app dev --no-open --port <N>` (or `wmill dev --no-open --path <p>` for a script/flow) started in the background from an agent session prints a `http://localhost:<port>` dev-server URL that the user can open directly in their own browser — confirmed 2026-10-01, including from a background job, because these sessions run on the user's own Mac, not a remote sandbox. No proxy mode, no tunnel, no `launch.json`/MCP preview tool needed for this user's setup — when they ask to "preview" an app/script/flow, this is what they mean: a real `wmill app dev`/`wmill dev` session they open themselves, not just a `script preview`/`app lint` programmatic run. Default to starting it this way (see the `preview` skill for the full direct-vs-proxy decision tree) and hand them the printed `localhost` URL.
