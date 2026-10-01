@@ -70,6 +70,14 @@ The `agent` workspace's scripts/flows/resources are mirrored to **`rn-ax/windmil
 
 **Tooling note**: see the `cloudflare` skill's "Workers & wrangler" section for the `wrangler`/Node setup quirk on this machine — not Windmill-specific.
 
+## App UI styling
+
+**Convention**: Windmill apps should pull in a simple CSS library — **Fomantic UI** (the maintained jQuery-free-friendly fork of Semantic UI) — rather than hand-rolling button/text styling with one-off inline CSS per component. The user wants prettier text/buttons without writing bespoke CSS for every app. Apply Fomantic's class names (`ui button`, `ui header`, `ui negative message`, etc.) directly rather than writing new rules from scratch. Default to this for any new Windmill app with UI beyond bare default component styling; don't introduce a different CSS framework without a reason.
+
+**Loading it in a raw app** (`f/apps/<name>`, React/Svelte/Vue bundled by Windmill's own esbuild — see the `raw-app`/`f/apps` conventions in `rn-ax/windmill`'s `AGENTS.md`): there is no static `index.html` to drop a `<link>` tag into — Windmill generates the HTML shell itself. **Don't `import 'fomantic-ui-css/semantic.min.css'` as a bundled npm dependency either** — confirmed 2026-09-30 that it drags in ~2.7MB of `@font-face` assets (icon font + Lato, woff/woff2) via relative `url()`s, which fails outright under a bare esbuild config (`No loader is configured for ".woff2" files`) and isn't confirmed to work even with file-loaders configured, since this raw-app bundler's actual esbuild config is opaque. The working, zero-risk approach: a plain CSS `@import` as the **first line** of `index.css` — `@import url('https://cdn.jsdelivr.net/npm/fomantic-ui-css@2.9.4/semantic.min.css');`. Confirmed 2026-09-30 that esbuild leaves an `@import` of a fully-qualified `http(s)://` URL untouched in its output (it doesn't fetch/inline external URLs during bundling), so the browser resolves it at runtime exactly like a native `<link rel="stylesheet">` — no bundling risk, no local font assets. `index.css` is already imported by `App.tsx` in the standard raw-app scaffold, so no new import wiring is needed. Applied first to `f/apps/cost_claims` as the reference pattern.
+
+**Loading it in a component-based (non-raw) app**: no confirmed pattern yet — the app editor's HTML/Rich Text component head or a global-CSS setting, if one exists, would be the place to try a CDN `<link>`; not yet tested on this instance.
+
 ## Job execution / workers
 
 **Job isolation**: set to **None** (not Unshare or Nsjail) — the TrueNAS-packaged `worker`/`worker-native` containers run with `cap_drop: ["ALL"]` and no relevant `cap_add`, plus `no-new-privileges`, so both other isolation modes would fail outright trying to create namespaces (`CAP_SYS_ADMIN` unavailable). The container-level hardening is already the real sandboxing boundary here; the in-process isolation modes are redundant on this deployment, not just unnecessary.
