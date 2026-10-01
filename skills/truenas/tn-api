@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Authenticated TrueNAS middleware API wrapper, via SSH to the `truenas` host
+# alias (root access through `admin`'s passwordless sudo - see this skill's
+# "Instance" section). Avoids juggling a revocable API key for ad-hoc agent-
+# session use - a mistake tonight (2026-10-01) revoked the "Agent" API key
+# that CI's truenas-deploy action also depends on, because testing a
+# different script's API-key auth flow kept hitting it wrong. SSH root access
+# has no such revocation risk, and this is the same access any admin
+# troubleshooting session on this box already uses.
+#
+# A script meant to run unattended ON a system with no SSH access of its own
+# (e.g. a Windmill job, which runs in a container with no SSH key) still
+# needs the real websocket+API-key flow directly - this wrapper is for
+# interactive/agent-session ad-hoc queries only.
+#
+# Usage: tn-api <method> [params-json]
+#   tn-api app.query
+#   tn-api app.query '[["id","=","portal"]]'
+#   tn-api app.image.query
+set -euo pipefail
+
+method="${1:?Usage: tn-api <method> [params-json]}"
+params="${2:-[]}"
+
+ssh truenas "sudo midclt call $(printf '%q' "$method") $(printf '%q' "$params")"
