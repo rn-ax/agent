@@ -83,6 +83,10 @@ The `agent` workspace's scripts/flows/resources are mirrored to **`rn-ax/windmil
 
 **Tooling note**: see the `cloudflare` skill's "Workers & wrangler" section for the `wrangler`/Node setup quirk on this machine — not Windmill-specific.
 
+## App naming
+
+Windmill apps/scripts (`f/<name>`, `f/apps/<name>__raw_app`, `f/app-models/<name>.ts`) use a plain, descriptive name for what the thing does — `media`, `lunch`, `cost_claims`. This instance does **not** use `monocoque`'s noun+animal/food app-naming pun convention (see the `home` skill / monocoque's own `AGENTS.md` for that convention) — the two app suites are separate, and a Windmill rebuild of a monocoque app gets its own descriptive name rather than inheriting the Django app's pun name. Example: a Windmill rebuild of monocoque's `workhorse` app (a working-day schedule/break planner) was named `workday`, not `workhorse`.
+
 ## App UI styling
 
 **Convention**: Windmill apps should pull in a simple CSS library — **Fomantic UI** (the maintained jQuery-free-friendly fork of Semantic UI) — rather than hand-rolling button/text styling with one-off inline CSS per component. The user wants prettier text/buttons without writing bespoke CSS for every app. Apply Fomantic's class names (`ui button`, `ui header`, `ui negative message`, etc.) directly rather than writing new rules from scratch. Default to this for any new Windmill app with UI beyond bare default component styling; don't introduce a different CSS framework without a reason.
