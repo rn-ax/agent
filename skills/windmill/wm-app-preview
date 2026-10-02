@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Starts `wmill app dev` for a raw app on a free local port, in the
+# background, and prints the dev server URL once it's up. Avoids
+# hand-picking/incrementing a port (collides with another worktree or
+# session's still-running preview on the same machine) and avoids blocking
+# the caller on a long-running process.
+# Usage: wm-app-preview <app_dir>
+#   wm-app-preview f/apps/media__raw_app
+#
+# Prints the dev server URL on stdout. Prints the log file path and the
+# background process's PID on stderr — kill that PID to stop the preview.
+set -euo pipefail
+
+app_dir="${1:?Usage: wm-app-preview <app_dir>}"
+
+# Strip ANSI color codes: some environments force-color node's console.log
+# even when stdout is captured (not a TTY), which would otherwise leave
+# escape sequences wrapped around the port number.
+port="$(node -e 'const s=require("net").createServer();s.listen(0,()=>{console.log(s.address().port);s.close()})' | sed -E 's/\x1b\[[0-9;]*m//g')"
+log="$(mktemp)"
+
+(
+    cd "$app_dir"
+    nohup wmill app dev --no-open --port "$port" >"$log" 2>&1 &
+    echo $! >"$log.pid"
+    disown
+)
+
+url=""
+for _ in $(seq 1 30); do
+    # wmill app dev also force-colors its own log lines, so the URL token
+    # grep matches can have ANSI escapes glued onto the end with no
+    # whitespace in between — strip them before extracting.
+    url="$(sed -E 's/\x1b\[[0-9;]*m//g' "$log" | grep -o 'Dev server running at [^[:space:]]*' | awk '{print $NF}' || true)"
+    [ -n "$url" ] && break
+    sleep 1
+done
+
+if [ -z "$url" ]; then
+    echo "wm-app-preview: dev server did not start within 30s. Log:" >&2
+    cat "$log" >&2
+    exit 1
+fi
+
+echo "$url"
+echo "Log: $log  PID: $(cat "$log.pid")" >&2
