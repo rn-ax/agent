@@ -118,14 +118,16 @@ A later sweep starts after the dates below, so only newer orders need reading: s
 | Dustin Home | Read through 2013-12 (the last order) | Not read |
 | Apple Store | Read through 2016-10 | Not read |
 | Clas Ohlson (Finnish shop) | Read through 2026-01-06 | Not read |
-| Verkkokauppa.com | Read through 2026-06-18 | One pasted order page (2026-02-25); the rest not read |
+| Verkkokauppa.com | Read through 2026-06-18 | Complete from 2020-10-01 through 2026-10-11 (CSV export "Ostoraportti" with serial numbers and warranty months); earlier orders not read |
 | IKEA | Store receipts through 2026-08-09, online orders through 2024-11-11 | Not read |
 | Elgiganten | Read through 2026-06-22 | Not read |
 | Blocket | Listing receipts through 2013-09 | Not read |
 
 Reviewed with nothing to record: PayPal receipts (software, services, tiny accessories), Klarna invoices, and bank e-invoice notices (they name no merchants or items).
 
-Small purchases are skipped: AliExpress items under about 10 EUR, bare electronic components, clothing and costumes, utensils and consumables.
+Small purchases are skipped: AliExpress items under about 10 EUR, bare electronic components, clothing and costumes, utensils and consumables, and LEGO sets.
+
+A shop's order-history export is the preferred source when one exists: Verkkokauppa's CSV lists every order with brand, product code, serial or IMEI, and warranty months. Its prices exclude VAT for deliveries to Åland, so Finnish VAT is added by purchase date. Returned items and orders the user did not keep are left out, and serial numbers in the export are matched to devices already in Homebox.
 
 ## Computers and their parts
 
