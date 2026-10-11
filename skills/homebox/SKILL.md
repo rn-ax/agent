@@ -61,16 +61,16 @@ Receipts and invoices live in Paperless; Homebox records the purchase facts in t
 
 Documents that stay out: environmental reports, regulatory and compliance declarations, marketing brochures, release notes, and legal-only leaflets that ship in the box. A manual that exists only as a web page is recorded as a link in a custom field (for example `Manual`).
 
-Attachment names state the document and language, such as `User Manual (English)`. The official vendor PDF in the owner's language is preferred; one comprehensive manual beats several fragments.
+Attachment names state the document and language, such as `User Manual (English)`. A manual is only worth attaching when it is in Swedish or English; extra languages in the same file do no harm, while a manual in neither language is not attached. The official vendor PDF is preferred, and one comprehensive manual beats several fragments.
 
 ## What goes in the inventory
 
 The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, always asked as "do you still own this?" (a selected item is owned), and the user confirms its status:
 - **Owned**: created as a normal item.
 - **Gone** (sold, thrown away, given away): created as an archived item, so the purchase history stays on record. A sale also gets `soldDate`, `soldTo`, `soldPrice` and `soldNotes`; any other exit is noted in `notes`.
-- **Not theirs** (bought for someone else, never kept): left out.
+- **Not theirs** (bought for someone else, never owned): left out, not archived.
 
-A candidate that gets no answer is not created.
+A candidate that gets no answer is not created. Candidates are presented item by item; a receipt or order is never approved as a whole, because one receipt mixes owned items, items for others, and out-of-scope items.
 
 Categories that stay out:
 - Cables.
@@ -78,6 +78,8 @@ Categories that stay out:
 - Batteries.
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
+- Storage boxes and containers.
+- Cables, connectors and accessory kits (an accessory kit is not recorded as a single item).
 - Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
 - Items bought for someone else.
@@ -85,9 +87,20 @@ Categories that stay out:
 
 When the user rules out another category, it is added to this list.
 
+Board games are recorded as well (they come with rulebooks). Manuals decide scope: anything electronic, and anything the user assembles themselves (IKEA furniture, shelving, wardrobes), comes with a manual the user keeps, so it is recorded and its manual is attached. Furniture and small items without a manual are not tracked.
+
 An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
 Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
+
+## Computers and their parts
+
+A computer or NAS is an item, and its parts are child items (CPU, board, RAM, PSU, case, GPU, drives). The installed hardware is read from the machine itself and matched to purchase emails by model number or serial:
+- Linux hosts: `lscpu`, `lsblk -o NAME,MODEL,SERIAL,SIZE`, `dmidecode`, `lspci -v`, `nvidia-smi`.
+- Synology: `/proc/mdstat`, `/sys/block/*/device/model` and `/usr/syno/bin/synodisk --info /dev/<disk>`.
+- macOS: `system_profiler SPHardwareDataType SPStorageDataType`.
+
+A part that was replaced stays as an archived child with a note on what replaced it. A gift records the giver's purchase date and price when known, with a note saying it was a gift. An order page the user pastes works as a source in place of an email, and the `Source` field says so.
 
 ## Importing from purchase emails
 
