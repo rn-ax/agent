@@ -28,3 +28,33 @@ This version names things differently from older Homebox docs and blog posts:
 - Attachments: `POST /entities/{id}/attachments` uploads a file; `POST /entities/{id}/attachments/external` links one by URL.
 - `/templates` and `/templates/{id}/create-item` create items from a reusable field set.
 - `/group/exports` and `/entities/export` produce backups; `/actions/wipe-inventory` deletes everything, so treat it as off-limits without explicit instruction.
+
+## Inventory conventions
+
+Homebox's model: locations nest (room → shelf → box) and hold items; items can hold child items; tags group across the tree; templates and entity types pre-fill fields. The conventions below keep records consistent so an agent can search them.
+
+- **Locations** are physical places. A new account is seeded with default rooms (Attic, Basement, Bathroom, Bedroom, Garage, Kitchen, Living Room, Office); items go into these or into shelves/boxes nested under them.
+- **Item names** read as `Product (year, variant)` — recognisable in a list, e.g. `Mac mini (2023, M2 Pro)`.
+- **Built-in fields first**: `manufacturer`, `modelNumber`, `serialNumber`, `purchaseDate`/`purchasePrice`/`purchaseFrom`, `warrantyExpires`/`warrantyDetails`, `lifetimeWarranty`, `notes`. A fact that has a built-in field stays out of custom fields.
+- **Custom fields** carry the remaining specs. Names are Title Case and reused across items — check `GET /entities/fields` for names already in use before inventing one. Values carry their unit (`16 GB unified`). The API accepts `text`, `number`, `boolean` and `time` types; use `text` for specs so the unit stays attached.
+- **Links** go in a text custom field as markdown, `[Label](https://…)`, which Homebox renders as a clickable button.
+- **Child items** model parts that have their own serial or warranty — a server's disks are children of the server item.
+- **Tags** are lowercase single words (`computer`, `homelab`, `storage`) and describe what the item is or does.
+- **Attachments** use the type that matches the file: `manual`, `warranty`, `receipt`, `photo` or `attachment`.
+- **Description** is markdown and holds the one-line "what is this and what is it for".
+
+## Adding an item
+
+1. Read what exists: `GET /tags`, `GET /entities/fields`, `GET /entities/tree`.
+2. Collect exact specs from an authoritative source — a command on the device itself (`system_profiler SPHardwareDataType`, `lscpu`, `dmidecode`, `lsblk -o NAME,MODEL,SERIAL`) or the vendor's spec page.
+3. `POST /entities` with `name`, `parentId`, `quantity` and `tagIds`; the create call accepts only these basics.
+4. `GET /entities/{id}`, merge the specs into the body (`tagIds` from `tags`, `parentId` from `parent`, plus `fields`), and `PUT /entities/{id}`. PUT replaces the whole record, so send the full body.
+5. Attach manuals and documents: `hb-api POST /entities/{id}/attachments -F file=@x.pdf -F type=manual -F name='Title'`.
+6. `GET /entities/{id}` and check the result; for a batch, check `GET /entities?pageSize=50` too.
+
+## Behaviour worth knowing
+
+- Locations take asset IDs from the same sequence as items, so IDs are not contiguous across items.
+- Item search matches serial numbers and asset IDs (`q=%23000-012` finds asset `000-012`).
+- Uploads are capped by `HBOX_WEB_MAX_UPLOAD_SIZE` (MB), which defaults to 10. This instance sets it to 100 so full-size manuals fit; an over-limit upload fails with `Connection reset by peer` or `failed to parse multipart form`.
+- Homebox attachments can't be imported or exported through CSV, so files are uploaded through the API after the records exist.

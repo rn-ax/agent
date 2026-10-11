@@ -9,7 +9,8 @@
 #
 # <path> is relative to <base_url>/api/v1 and must start with /. A multipart
 # upload (-F) needs the Content-Type header curl generates itself, so the
-# JSON default is only applied when no -F is passed.
+# JSON default is only applied when no -F is passed. The `${arr[@]+...}`
+# expansion keeps the empty array safe under `set -u` on macOS's bash 3.2.
 set -euo pipefail
 
 method="${1:?Usage: hb-api <method> <path> [curl-args...]}"
@@ -31,5 +32,5 @@ done
 
 curl -sS -X "$method" "${base_url}/api/v1${path}" \
 	-H "Authorization: Bearer $token" \
-	"${content_type[@]}" \
+	${content_type[@]+"${content_type[@]}"} \
 	"$@"
