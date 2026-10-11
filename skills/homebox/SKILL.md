@@ -61,7 +61,7 @@ Receipts and invoices live in Paperless; Homebox records the purchase facts in t
 
 Documents that stay out: environmental reports, regulatory and compliance declarations, marketing brochures, release notes, and legal-only leaflets that ship in the box. A manual that exists only as a web page is recorded as a link in a custom field (for example `Manual`).
 
-Attachment names state the document and language, such as `User Manual (English)`. The official vendor PDF in the owner's language is preferred; one comprehensive manual beats several fragments.
+Attachment names state the document and language, such as `User Manual (English)`. A manual is only worth attaching when it is in Swedish or English; extra languages in the same file do no harm, while a manual in neither language is not attached. The official vendor PDF is preferred, and one comprehensive manual beats several fragments.
 
 ## What goes in the inventory
 
