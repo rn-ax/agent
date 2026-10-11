@@ -63,6 +63,36 @@ Documents that stay out: environmental reports, regulatory and compliance declar
 
 Attachment names state the document and language, such as `User Manual (English)`. The official vendor PDF in the owner's language is preferred; one comprehensive manual beats several fragments.
 
+## What goes in the inventory
+
+The inventory holds durable things the user owns. Each candidate is shown to the user with its date and price, and only items they confirm they still own are created. A candidate that gets no answer is not approved.
+
+Categories that stay out:
+- Cables.
+- Mounting hardware (wall, ceiling and desk mounts, brackets).
+- Items bought for someone else.
+- Computer parts (drives, motherboards, RAM, CPUs, GPUs, coolers, drive stabilizers). They are added as child items of the computer they live in, once the computers are mapped; until then they wait in a scratch list.
+
+When the user rules out another category, it is added to this list.
+
+## Importing from purchase emails
+
+Order confirmations and receipts in the mailbox (see the `email` skill and its `fm-api`) are the source for purchase history.
+
+1. **Harvest**: page through `search_email` with purchase-style subject terms in each language the mailbox uses (Swedish `kvitto`, `orderbekräftelse`, `beställning`; Finnish `tilausvahvistus`; English `receipt`, `order confirmation`, `your order`, `shipped`). Combine terms as `subject:a OR subject:b`; parenthesised groups are rejected. Pages hold 50 results and continue with `cursor`.
+2. **Find the shops**: group results by sender domain. Product retailers are worth parsing; banks, payment processors, food, travel and app-store receipts are not.
+3. **Parse per shop and era**: each shop formats its confirmations differently, and a shop's layout can change over the years. Webhallen's older "Tack för din beställning" mails list `SKU: name N st á PRICE kr` plus `Ordernummer`/`Orderdatum`; its newer ones are point-of-sale receipts.
+4. **Show candidates newest first** per shop, durable items only, and wait for the user's confirmation per item.
+5. **Create** each approved item with the purchase fields below.
+
+Purchase facts go in the built-in fields: `purchaseDate` (`YYYY-MM-DD`, the order date), `purchasePrice`, `purchaseFrom` (the shop). `purchasePrice` is in the collection currency, EUR, converted at the ECB rate on the purchase date with `hb-eur <amount> <currency> <date>` (weekends use the previous business day). Custom fields keep the trail back to the source:
+- `Order Number`
+- `Purchase Price (Original)` (for example `7379 SEK`)
+- `Exchange Rate` (for example `1 SEK = 0.11292 EUR (2014-01-03)`)
+- `Source Email` (the Fastmail email id, readable with `fm-api read_email`)
+
+Scratch work (harvest results, parsed items) stays outside the repo, since it contains email content.
+
 ## Adding an item
 
 1. Read what exists: `GET /tags`, `GET /entities/fields`, `GET /entities/tree`.
