@@ -91,7 +91,13 @@ Board games are recorded as well (they come with rulebooks). Manuals decide scop
 
 An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
+Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `employer-owned` tag and a note saying so; their price stays empty when the employer paid.
+
 Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
+
+## Following up on missing information
+
+The `needs-info` tag marks live items that lack information worth chasing, and the item's `Missing Info` field lists what: serial number (whole devices only, not peripherals or internal parts), model number (not furniture or board games), purchase date, and purchase price (not gifts or employer-owned items). `hb-needs-info` (this skill's directory) sets and clears the tag and field across the inventory and is safe to re-run; `--dry-run` shows what would change. Filter by the tag in Homebox, or `hb-api GET '/entities?tags=<tag id>'`, to work through the follow-ups, then run the script again to clear the completed ones.
 
 ## Computers and their parts
 

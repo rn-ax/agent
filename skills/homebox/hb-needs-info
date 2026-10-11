@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Sync the `needs-info` tag across the Homebox inventory.
+
+A live (non-archived) item gets the tag and a `Missing Info` custom field naming
+what is missing; an item that is complete loses both. Safe to re-run.
+
+Checks:
+  serial number   whole devices only (laptop, phone, tablet, wearable, storage,
+                  network, display, av, camera, gaming, and computers placed
+                  directly in a location); not peripherals or internal parts
+  model number    everything except furniture and board games
+  purchase date   everything except gifts
+  purchase price  everything except gifts and employer-owned items
+
+Usage: hb-needs-info [--dry-run]
+"""
+import json, os, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
+
+HB = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hb-api")
+DRY = "--dry-run" in sys.argv
+DEVICE_TAGS = {"laptop", "phone", "tablet", "wearable", "storage", "network", "display", "av", "camera", "gaming"}
+NO_SERIAL = {"peripheral"}
+NO_MODEL = {"furniture", "board-game"}
+
+
+def hb(method, path, body=None):
+    cmd = [HB, method, path] + (["-d", json.dumps(body)] if body is not None else [])
+    return json.loads(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout)
+
+
+def missing(e):
+    tags = {t["name"] for t in e["tags"]}
+    miss = []
+    top_level = (e["parent"] or {}).get("entityType", {}).get("isLocation", True)
+    is_device = bool(tags & DEVICE_TAGS) or ("computer" in tags and top_level)
+    if is_device and not (tags & NO_SERIAL) and not e["serialNumber"]:
+        miss.append("serial number")
+    if not (e["modelNumber"] or tags & NO_MODEL):
+        miss.append("model number")
+    gift = "gift" in (e.get("notes") or "").lower()
+    date = (e["purchaseDate"] or "").strip()
+    if not gift and (not date or date.startswith("0001")):
+        miss.append("purchase date")
+    if not gift and "employer-owned" not in tags and not e["purchasePrice"]:
+        miss.append("purchase price")
+    return ", ".join(miss) or None
+
+
+def main():
+    items, page = [], 1
+    while True:
+        r = hb("GET", f"/entities?pageSize=50&page={page}&includeArchived=true")
+        items += r["items"]
+        if len(items) >= r["total"]:
+            break
+        page += 1
+    with ThreadPoolExecutor(6) as ex:
+        inv = list(ex.map(lambda i: hb("GET", f"/entities/{i['id']}"), items))
+    tag = next((t for t in hb("GET", "/tags") if t["name"] == "needs-info"), None) or hb("POST", "/tags", {"name": "needs-info"})
+    counts = {"added": 0, "updated": 0, "removed": 0}
+    for e in inv:
+        if e["archived"] or e["entityType"]["isLocation"]:
+            want = None
+        else:
+            want = missing(e)
+        has = any(t["name"] == "needs-info" for t in e["tags"])
+        current = next((f["textValue"] for f in e["fields"] if f["name"] == "Missing Info"), None)
+        if want == current and has == bool(want):
+            continue
+        counts["removed" if not want else "updated" if has else "added"] += 1
+        if DRY:
+            continue
+        full = dict(e)
+        full["tagIds"] = [t["id"] for t in e["tags"] if t["name"] != "needs-info"]
+        full["parentId"] = e["parent"]["id"]
+        full["fields"] = [f for f in e["fields"] if f["name"] != "Missing Info"]
+        if want:
+            full["tagIds"].append(tag["id"])
+            full["fields"].append({"type": "text", "name": "Missing Info", "textValue": want})
+        hb("PUT", f"/entities/{e['id']}", full)
+    print(json.dumps(counts))
+
+
+main()
