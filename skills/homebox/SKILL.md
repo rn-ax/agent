@@ -103,26 +103,27 @@ A kit that combines individual products is recorded as those products, never as 
 
 ## Purchase history coverage
 
-Purchase history has been analysed per shop up to the dates below. A later sweep starts after these dates, so only newer orders need reading (search the mailbox with `fm-api` for mail after the date, or ask for a fresh order-history export).
+Each shop has two possible sources. Order mails are easy to scan but can have gaps (notifications that were never configured, mails that were deleted or filtered, items missing from the text). A shop's own order-history page is complete: it lists every order, so a website pass closes the gaps a mail pass leaves.
 
-| Shop | Source | Covered through |
+A later sweep starts after the dates below, so only newer orders need reading: search the mailbox with `fm-api` for newer mail, and ask for a fresh order-history capture (a window capture of the page, since a full-page capture stops at 16,384 px).
+
+| Shop | Order mails | Website order history |
 |---|---|---|
-| Webhallen | Order mails and the full order-history page | 2026-10-11 |
-| AliExpress | Full order-history screenshots (the mails name no items before 2025) | 2026-10-11 |
-| Amazon.de | Order mails | 2026-09-23 |
-| Amazon.co.uk | Order mails | 2019-12 (two orders) |
-| Multitronic (Åland and Oy) | Order mails | 2026-04-07 |
-| Dustin Home | Order mails | 2013-12 (the last order) |
-| Apple Store | Order and invoice mails | 2016-10 |
-| Clas Ohlson (Finnish shop) | Order and shipping mails | 2026-01-06 |
-| Verkkokauppa.com | Order mails and one pasted order page | 2026-06-18 |
-| IKEA | Store receipts, and online orders | 2026-08-09 (store), 2024-11-11 (online) |
-| Elgiganten | Receipts | 2026-06-22 |
-| Blocket | Listing receipts (items offered for sale) | 2013-09 |
+| Webhallen | Read through 2026-08 | Complete through 2026-10-11 |
+| AliExpress | Name no items before 2025 | Complete through 2026-10-11, except that the range around 2024-07 still needs a recheck for one item |
+| Amazon.de | Read through 2026-09-23 | Not read |
+| Amazon.com (USD) | Totals only, no item names | Not read |
+| Amazon.co.uk | Read through 2019-12 (two orders) | Not read |
+| Multitronic (Åland and Oy) | Read through 2026-04-07 | Not read |
+| Dustin Home | Read through 2013-12 (the last order) | Not read |
+| Apple Store | Read through 2016-10 | Not read |
+| Clas Ohlson (Finnish shop) | Read through 2026-01-06 | Not read |
+| Verkkokauppa.com | Read through 2026-06-18 | One pasted order page (2026-02-25); the rest not read |
+| IKEA | Store receipts through 2026-08-09, online orders through 2024-11-11 | Not read |
+| Elgiganten | Read through 2026-06-22 | Not read |
+| Blocket | Listing receipts through 2013-09 | Not read |
 
-Reviewed with nothing to record: PayPal receipts (software, services, tiny accessories), Klarna invoices, bank e-invoice notices (they name no merchants or items).
-
-Not covered: Amazon.com (USD) orders from 2022 and 2023, whose mails carry totals only and need the site's order history, and any shop that sends no email.
+Reviewed with nothing to record: PayPal receipts (software, services, tiny accessories), Klarna invoices, and bank e-invoice notices (they name no merchants or items).
 
 Small purchases are skipped: AliExpress items under about 10 EUR, bare electronic components, clothing and costumes, utensils and consumables.
 
