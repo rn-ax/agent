@@ -89,7 +89,7 @@ When the user rules out another category, it is added to this list.
 
 Board games are recorded as well (they come with rulebooks). Manuals decide scope: anything electronic, and anything the user assembles themselves (IKEA furniture, shelving, wardrobes), comes with a manual the user keeps, so it is recorded and its manual is attached. Furniture and small items without a manual are not tracked.
 
-An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
+An order that has been placed but not delivered yet is recorded straight away with the `ordered` tag and an `Expected Delivery` field; the tag and field are removed when it arrives. An order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
 Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `employer-owned` tag and a note saying so; their price stays empty when the employer paid.
 
