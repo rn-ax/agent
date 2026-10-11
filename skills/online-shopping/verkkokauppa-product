@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Current price and stock for Verkkokauppa.com products, from the JSON APIs the
+# storefront itself calls. Prints one JSON array on stdout.
+# Usage: verkkokauppa-product <pid> [pid ...]
+#   verkkokauppa-product 975140 1013957 | jq -r '.[] | [.pid, .price, .inStock, .name] | @tsv'
+#
+# <pid> is the number in a product URL: /fi/product/<pid>/<slug>.
+# price is in EUR including VAT. inStock is true when the shop can ship it.
+set -euo pipefail
+
+[ "$#" -ge 1 ] || { echo "Usage: verkkokauppa-product <pid> [pid ...]" >&2; exit 2; }
+
+pids="$(IFS=,; echo "$*")"
+base="https://product.service.verkkokauppa.com/fi/api/v1"
+
+products="$(curl -sSfg -A 'Mozilla/5.0' "$base/product?filter[pid]=$pids")"
+availability="$(curl -sSf -A 'Mozilla/5.0' "$base/availability?pids=$pids")"
+
+jq -n --argjson p "$products" --argjson a "$availability" '
+	[$p.data[].attributes.articles[0] as $x
+		| ($a[] | select(.pid == $x.pid)) as $s
+		| {
+			pid: $x.pid,
+			name: $x.name,
+			price: $x.price.current,
+			previousPrice: $x.price.original,
+			inStock: ($s.stocks.shipment.isPurchasable),
+			soldOut: $s.flags.isSoldOut,
+			url: ("https://www.verkkokauppa.com" + $x.href)
+		}]'
