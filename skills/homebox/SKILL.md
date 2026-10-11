@@ -63,6 +63,59 @@ Documents that stay out: environmental reports, regulatory and compliance declar
 
 Attachment names state the document and language, such as `User Manual (English)`. The official vendor PDF in the owner's language is preferred; one comprehensive manual beats several fragments.
 
+## What goes in the inventory
+
+The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, always asked as "do you still own this?" (a selected item is owned), and the user confirms its status:
+- **Owned**: created as a normal item.
+- **Gone** (sold, thrown away, given away): created as an archived item, so the purchase history stays on record. A sale also gets `soldDate`, `soldTo`, `soldPrice` and `soldNotes`; any other exit is noted in `notes`.
+- **Not theirs** (bought for someone else, never kept): left out.
+
+A candidate that gets no answer is not created.
+
+Categories that stay out:
+- Cables.
+- Mounting hardware (wall, ceiling and desk mounts, brackets).
+- Batteries.
+- Bags, backpacks and suitcases.
+- Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
+- Simple chargers (charging hubs and stations are in scope).
+- Consumables and books.
+- Items bought for someone else.
+- Computer parts (drives, motherboards, RAM, CPUs, GPUs, coolers, drive stabilizers). They are added as child items of the computer they live in, once the computers are mapped; until then they wait in a scratch list.
+
+When the user rules out another category, it is added to this list.
+
+An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
+
+Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
+
+## Importing from purchase emails
+
+Order confirmations and receipts in the mailbox (see the `email` skill and its `fm-api`) are the source for purchase history.
+
+1. **Harvest**: page through `search_email` with purchase-style subject terms in each language the mailbox uses (Swedish `kvitto`, `orderbekräftelse`, `beställning`; Finnish `tilausvahvistus`; English `receipt`, `order confirmation`, `your order`, `shipped`). Combine terms as `subject:a OR subject:b`; parenthesised groups are rejected. Pages hold 50 results and continue with `cursor`.
+2. **Find the shops**: group results by sender domain. Product retailers are worth parsing; banks, payment processors, food, travel and app-store receipts are not.
+3. **Parse per shop and era**: each shop formats its confirmations differently, and a shop's layout can change over the years. Webhallen's older "Tack för din beställning" mails list `SKU: name N st á PRICE kr` plus `Ordernummer`/`Orderdatum`; its newer ones are point-of-sale receipts.
+4. **Show candidates newest first** per shop, durable items only, and wait for the user's confirmation per item.
+5. **Create** each approved item with the purchase fields below.
+
+Purchase facts go in the built-in fields: `purchaseDate` (`YYYY-MM-DD`, the order date), `purchasePrice`, `purchaseFrom` (the shop). `purchasePrice` is in the collection currency, EUR, converted at the ECB rate on the purchase date with `hb-eur <amount> <currency> <date>` (weekends use the previous business day).
+
+`purchasePrice` includes VAT. Retail prices paid in Sweden and in shops in Åland already include VAT. Online purchases delivered to the user's address in Åland (outside the EU VAT area; the user lives there from late 2019) are checked out without VAT, and the user pays Finnish VAT on arrival (24% until 2024-08-31, 25.5% from 2024-09-01). The stored price is the checkout price plus that VAT. The ship-to address in an order email shows where the user lived at the time, and when it is unclear whether a price includes VAT, the user is asked.
+
+Amazon.de emails differ by era, so each layout is checked against the order total before pricing:
+- The "Ordered:" layout (2025 onward) lists item prices that include German VAT (19%), while the order total is ex-VAT (item sum ÷ 1.19). The stored price is `listed ÷ 1.19 × (1 + Finnish rate)`.
+- The 2020 layout shows a separate German VAT line (16% in the second half of 2020, 19% after) in the order total.
+- The 2023-2024 layout lists items and a total without a VAT line, and the prices there appear to be ex-VAT.
+
+The listed price is kept in `Purchase Price (Original)` as `<amount> EUR listed (incl. German VAT)` (or `excl. VAT` where that applies), and the `VAT` field records what was removed and added. Custom fields keep the trail back to the source:
+- `Order Number`
+- `Purchase Price (Original)` (for example `7379 SEK`)
+- `Exchange Rate` (for example `1 SEK = 0.11292 EUR (2014-01-03)`)
+- `Source Email` (the Fastmail email id, readable with `fm-api read_email`)
+
+Scratch work (harvest results, parsed items) stays outside the repo, since it contains email content.
+
 ## Adding an item
 
 1. Read what exists: `GET /tags`, `GET /entities/fields`, `GET /entities/tree`.
@@ -77,4 +130,5 @@ Attachment names state the document and language, such as `User Manual (English)
 - Locations take asset IDs from the same sequence as items, so IDs are not contiguous across items.
 - Item search matches serial numbers and asset IDs (`q=%23000-012` finds asset `000-012`).
 - Uploads are capped by `HBOX_WEB_MAX_UPLOAD_SIZE` (MB), which defaults to 10. This instance sets it to 100 so full-size manuals fit; an over-limit upload fails with `Connection reset by peer` or `failed to parse multipart form`.
+- Archiving is a flag on the item (`archived: true`). Archived items are absent from default searches and lists, readable by id, and listed with `includeArchived=true`. Archive keeps the record, purchase details and attachments; delete removes them.
 - Homebox attachments can't be imported or exported through CSV, so files are uploaded through the API after the records exist.

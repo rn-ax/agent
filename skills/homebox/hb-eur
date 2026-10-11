@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Converts an amount to EUR at the ECB reference rate for a purchase date
+# (Homebox stores prices in the collection currency, EUR here). Weekend and
+# holiday dates use the previous business day's rate, which the output reports.
+# Usage: hb-eur <amount> <currency> <YYYY-MM-DD>
+#   hb-eur 7379 SEK 2014-01-04
+# Prints one JSON object: {eur, rate, rateDate, original}
+set -euo pipefail
+
+amount="${1:?Usage: hb-eur <amount> <currency> <YYYY-MM-DD>}"
+currency="${2:?Usage: hb-eur <amount> <currency> <YYYY-MM-DD>}"
+date="${3:?Usage: hb-eur <amount> <currency> <YYYY-MM-DD>}"
+
+if [[ "$currency" == "EUR" ]]; then
+	jq -cn --argjson a "$amount" --arg d "$date" '{eur: $a, rate: 1, rateDate: $d, original: "\($a) EUR"}'
+	exit 0
+fi
+
+curl -fsS -m 15 "https://api.frankfurter.dev/v1/${date}?base=${currency}&symbols=EUR" |
+	jq -c --argjson a "$amount" --arg c "$currency" \
+		'{eur: (($a * .rates.EUR * 100 | round) / 100), rate: .rates.EUR, rateDate: .date, original: "\($a) \($c)"}'
