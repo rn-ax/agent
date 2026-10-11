@@ -100,7 +100,14 @@ Order confirmations and receipts in the mailbox (see the `email` skill and its `
 
 Purchase facts go in the built-in fields: `purchaseDate` (`YYYY-MM-DD`, the order date), `purchasePrice`, `purchaseFrom` (the shop). `purchasePrice` is in the collection currency, EUR, converted at the ECB rate on the purchase date with `hb-eur <amount> <currency> <date>` (weekends use the previous business day).
 
-`purchasePrice` includes VAT. Retail prices paid in Sweden and in shops in Åland already include VAT. Online purchases delivered to the user's address in Åland (outside the EU VAT area; the user lives there from late 2019) are checked out without VAT, and the user pays it on arrival, so the price is the order-email price plus Finnish VAT at the purchase date (24% until 2024-08-31, 25.5% from 2024-09-01). The order-email price is kept in `Purchase Price (Original)` as `<amount> EUR excl. VAT`, and a `VAT` field records the rate added. When it is unclear whether a price includes VAT, the user is asked. The ship-to address in the order email shows where the user lived at the time. Custom fields keep the trail back to the source:
+`purchasePrice` includes VAT. Retail prices paid in Sweden and in shops in Åland already include VAT. Online purchases delivered to the user's address in Åland (outside the EU VAT area; the user lives there from late 2019) are checked out without VAT, and the user pays Finnish VAT on arrival (24% until 2024-08-31, 25.5% from 2024-09-01). The stored price is the checkout price plus that VAT. The ship-to address in an order email shows where the user lived at the time, and when it is unclear whether a price includes VAT, the user is asked.
+
+Amazon.de emails differ by era, so each layout is checked against the order total before pricing:
+- The "Ordered:" layout (2025 onward) lists item prices that include German VAT (19%), while the order total is ex-VAT (item sum ÷ 1.19). The stored price is `listed ÷ 1.19 × (1 + Finnish rate)`.
+- The 2020 layout shows a separate German VAT line (16% in the second half of 2020, 19% after) in the order total.
+- The 2023-2024 layout lists items and a total without a VAT line, and the prices there appear to be ex-VAT.
+
+The listed price is kept in `Purchase Price (Original)` as `<amount> EUR listed (incl. German VAT)` (or `excl. VAT` where that applies), and the `VAT` field records what was removed and added. Custom fields keep the trail back to the source:
 - `Order Number`
 - `Purchase Price (Original)` (for example `7379 SEK`)
 - `Exchange Rate` (for example `1 SEK = 0.11292 EUR (2014-01-03)`)
