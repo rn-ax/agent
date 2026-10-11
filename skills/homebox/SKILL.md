@@ -9,6 +9,8 @@ The user's home inventory: everything they own (loosely defined), with exact spe
 
 **Related systems**: Homebox runs as an app on TrueNAS — see the `truenas` skill for the install playbook and `apps.md` for this app's install notes; `home` has the topology map.
 
+Work still to do on the inventory is listed in `TODO.md` next to this file.
+
 ## Instance
 
 Runs as the `homebox` app from TrueNAS's `community` catalog train. The LAN URL is `http://truenas.lan:30149`; there is no public Cloudflare route.
