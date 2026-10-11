@@ -40,8 +40,27 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 - **Links** go in a text custom field as markdown, `[Label](https://…)`, which Homebox renders as a clickable button.
 - **Child items** model parts that have their own serial or warranty — a server's disks are children of the server item.
 - **Tags** are lowercase single words (`computer`, `homelab`, `storage`) and describe what the item is or does.
-- **Attachments** use the type that matches the file: `manual`, `warranty`, `receipt`, `photo` or `attachment`.
+- **Attachments** use the type that matches the file (`manual`, `warranty`, `receipt`, `photo` or `attachment`); see "Documents worth attaching" for what to include.
 - **Description** is markdown and holds the one-line "what is this and what is it for".
+
+## Documents worth attaching
+
+An attachment earns its place when someone (or an agent) would open it to operate, maintain, repair, or claim on the item.
+
+| Document | Attachment type |
+|---|---|
+| User manual / setup guide | `manual` |
+| Installation, service, or repair manual | `manual` |
+| Spec sheet / datasheet with exact ratings (power, dimensions, capacity, pinouts) | `attachment` |
+| Warranty card or terms | `warranty` |
+| Receipt or invoice (proof of purchase and price) | `receipt` |
+| Parts list or exploded diagram | `attachment` |
+| Maintenance schedule, wiring or plumbing diagram | `attachment` |
+| Photos of the item, its label, and its serial plate | `photo` |
+
+Documents that stay out: environmental reports, regulatory and compliance declarations, marketing brochures, release notes, and legal-only leaflets that ship in the box. A manual that exists only as a web page is recorded as a link in a custom field (for example `Manual`).
+
+Attachment names state the document and language, such as `User Manual (English)`. The official vendor PDF in the owner's language is preferred; one comprehensive manual beats several fragments.
 
 ## Adding an item
 
@@ -49,7 +68,7 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 2. Collect exact specs from an authoritative source — a command on the device itself (`system_profiler SPHardwareDataType`, `lscpu`, `dmidecode`, `lsblk -o NAME,MODEL,SERIAL`) or the vendor's spec page.
 3. `POST /entities` with `name`, `parentId`, `quantity` and `tagIds`; the create call accepts only these basics.
 4. `GET /entities/{id}`, merge the specs into the body (`tagIds` from `tags`, `parentId` from `parent`, plus `fields`), and `PUT /entities/{id}`. PUT replaces the whole record, so send the full body.
-5. Attach manuals and documents: `hb-api POST /entities/{id}/attachments -F file=@x.pdf -F type=manual -F name='Title'`.
+5. Attach the documents worth keeping: `hb-api POST /entities/{id}/attachments -F file=@x.pdf -F type=manual -F name='Title'`.
 6. `GET /entities/{id}` and check the result; for a batch, check `GET /entities?pageSize=50` too.
 
 ## Behaviour worth knowing
