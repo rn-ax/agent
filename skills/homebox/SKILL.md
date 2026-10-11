@@ -101,6 +101,31 @@ The `needs-info` tag marks live items that lack information worth chasing, and t
 
 A kit that combines individual products is recorded as those products, never as a single kit item: a starter kit of bulbs and a remote becomes the bulbs and the remote, each with its own quantity. The kit's price is divided evenly over its pieces and the `Part Of Kit` and `Kit Price Split` fields say so.
 
+## Purchase history coverage
+
+Purchase history has been analysed per shop up to the dates below. A later sweep starts after these dates, so only newer orders need reading (search the mailbox with `fm-api` for mail after the date, or ask for a fresh order-history export).
+
+| Shop | Source | Covered through |
+|---|---|---|
+| Webhallen | Order mails and the full order-history page | 2026-10-11 |
+| AliExpress | Full order-history screenshots (the mails name no items before 2025) | 2026-10-11 |
+| Amazon.de | Order mails | 2026-09-23 |
+| Amazon.co.uk | Order mails | 2019-12 (two orders) |
+| Multitronic (Åland and Oy) | Order mails | 2026-04-07 |
+| Dustin Home | Order mails | 2013-12 (the last order) |
+| Apple Store | Order and invoice mails | 2016-10 |
+| Clas Ohlson (Finnish shop) | Order and shipping mails | 2026-01-06 |
+| Verkkokauppa.com | Order mails and one pasted order page | 2026-06-18 |
+| IKEA | Store receipts, and online orders | 2026-08-09 (store), 2024-11-11 (online) |
+| Elgiganten | Receipts | 2026-06-22 |
+| Blocket | Listing receipts (items offered for sale) | 2013-09 |
+
+Reviewed with nothing to record: PayPal receipts (software, services, tiny accessories), Klarna invoices, bank e-invoice notices (they name no merchants or items).
+
+Not covered: Amazon.com (USD) orders from 2022 and 2023, whose mails carry totals only and need the site's order history, and any shop that sends no email.
+
+Small purchases are skipped: AliExpress items under about 10 EUR, bare electronic components, clothing and costumes, utensils and consumables.
+
 ## Computers and their parts
 
 A computer or NAS is an item, and its parts are child items (CPU, board, RAM, PSU, case, GPU, drives). The installed hardware is read from the machine itself and matched to purchase emails by model number or serial:
