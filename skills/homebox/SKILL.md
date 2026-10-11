@@ -40,7 +40,7 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 - **Links** go in a text custom field as markdown, `[Label](https://…)`, which Homebox renders as a clickable button.
 - **Child items** model parts that have their own serial or warranty — a server's disks are children of the server item.
 - **Tags** are lowercase single words (`computer`, `homelab`, `storage`) and describe what the item is or does.
-- **Attachments** use the type that matches the file (`manual`, `warranty`, `receipt`, `photo` or `attachment`); see "Documents worth attaching" for what to include.
+- **Attachments** use the type that matches the file (`manual`, `warranty`, `photo` or `attachment`); see "Documents worth attaching" for what to include.
 - **Description** is markdown and holds the one-line "what is this and what is it for".
 
 ## Documents worth attaching
@@ -53,10 +53,11 @@ An attachment earns its place when someone (or an agent) would open it to operat
 | Installation, service, or repair manual | `manual` |
 | Spec sheet / datasheet with exact ratings (power, dimensions, capacity, pinouts) | `attachment` |
 | Warranty card or terms | `warranty` |
-| Receipt or invoice (proof of purchase and price) | `receipt` |
 | Parts list or exploded diagram | `attachment` |
 | Maintenance schedule, wiring or plumbing diagram | `attachment` |
 | Photos of the item, its label, and its serial plate | `photo` |
+
+Receipts and invoices live in Paperless; Homebox records the purchase facts in the built-in `purchaseDate`, `purchasePrice` and `purchaseFrom` fields.
 
 Documents that stay out: environmental reports, regulatory and compliance declarations, marketing brochures, release notes, and legal-only leaflets that ship in the box. A manual that exists only as a web page is recorded as a link in a custom field (for example `Manual`).
 
