@@ -17,6 +17,10 @@
 #   tn-api app.query
 #   tn-api app.query '[["id","=","portal"]]'
 #   tn-api app.image.query
+#
+# The params argument is passed as ONE midclt parameter, so a method taking a
+# single argument works (tn-api app.config '"homebox"'); a method needing
+# several separate arguments is called directly with `ssh truenas sudo midclt call`.
 set -euo pipefail
 
 method="${1:?Usage: tn-api <method> [params-json]}"

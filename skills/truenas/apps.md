@@ -37,3 +37,4 @@ Installed 2026-10-11 from the `community` catalog train via `app.create` (app na
 - The catalog's `values.storage` accepts only `data`; passing `additional_storage` fails validation with `values.storage.additional_storage: Field was not expected`.
 - `values.homebox.api_key_pepper` is required and must stay stable across restarts; rotating it invalidates every issued API key. The generated value went to a dated credentials file on `~/Desktop` per the standing install convention.
 - The web UI allows open registration (`allowRegistration: true` in `/api/v1/status`) until disabled.
+- `HBOX_WEB_MAX_UPLOAD_SIZE=100` is set through `values.homebox.additional_envs` (the default is 10 MB, too small for PDF manuals). Changing it goes through `app.update` with the full `app.config` values minus the `ix_*` keys, followed by `app.redeploy`.
