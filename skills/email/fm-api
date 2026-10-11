@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Fastmail MCP wrapper, using this account's Fastmail token (the "Fastmail"
+# item in the "Agent" 1Password vault; see the `rn-config` skill for the item
+# conventions this follows). The token is scoped to Fastmail's MCP service
+# with read-only data access, so it works against the MCP endpoint only; the
+# JMAP session endpoint rejects it.
+# Usage: fm-api <tool> [json-args]
+#        fm-api --tools
+#   fm-api list_folders
+#   fm-api search_email '{"query": "from:bank after:2026-09-01", "limit": 5}'
+#   fm-api read_email '{"id": "<email id from search_email>"}'
+#
+# Each call performs the MCP handshake (initialize + initialized) and then
+# one tools/call; the tool's text result is printed on stdout. --tools prints
+# "name: first line of description" for every tool the token can use.
+set -euo pipefail
+
+endpoint="https://api.fastmail.com/mcp"
+tool="${1:?Usage: fm-api <tool> [json-args] | fm-api --tools}"
+args="${2:-}"
+[[ -n "$args" ]] || args="{}"
+
+token="$(~/tasks/op-service-account item get Fastmail --vault Agent --fields password --reveal)"
+
+hdr="$(mktemp)"
+trap 'rm -f "$hdr"' EXIT
+
+# A streamable-HTTP MCP server may answer with plain JSON or an SSE stream
+# (`data: {...}` lines); normalise both to the bare JSON-RPC message.
+rpc() {
+	curl -sS -m 30 -X POST "$endpoint" \
+		-H "Authorization: Bearer $token" \
+		-H "Content-Type: application/json" \
+		-H "Accept: application/json, text/event-stream" \
+		${session:+-H "Mcp-Session-Id: $session"} \
+		"$@" | sed -E 's/^data: //' | grep -v -E '^(event:|id:|retry:|:|$)' || true
+}
+
+session=""
+init_body="$(rpc -D "$hdr" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"fm-api","version":"1"}}}')"
+if jq -e '.error' >/dev/null 2>&1 <<<"$init_body"; then
+	jq -r '.error.message' <<<"$init_body" >&2
+	exit 1
+fi
+session="$(awk 'tolower($1)=="mcp-session-id:" {print $2}' "$hdr" | tr -d '\r')"
+rpc -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null
+
+if [[ "$tool" == "--tools" ]]; then
+	rpc -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' |
+		jq -r '.result.tools[] | "\(.name): \(.description | split("\n")[0])"'
+	exit 0
+fi
+
+payload="$(jq -cn --arg name "$tool" --argjson args "$args" \
+	'{jsonrpc:"2.0",id:3,method:"tools/call",params:{name:$name,arguments:$args}}')"
+result="$(rpc -d "$payload")"
+
+if jq -e '.error' >/dev/null 2>&1 <<<"$result"; then
+	jq -r '.error.message' <<<"$result" >&2
+	exit 1
+fi
+jq -r '.result.content[0].text' <<<"$result"
+if [[ "$(jq -r '.result.isError // false' <<<"$result")" == "true" ]]; then
+	exit 1
+fi
