@@ -36,4 +36,4 @@ Installed 2026-10-11 from the `community` catalog train via `app.create` (app na
 - The container runs as `568:568` (`apps:apps`) with one persistent mount, `/data`, bound to `Storage/Configuration/homebox/data` as a host path. No ACL grant is needed.
 - The catalog's `values.storage` accepts only `data`; passing `additional_storage` fails validation with `values.storage.additional_storage: Field was not expected`.
 - `values.homebox.api_key_pepper` is required and must stay stable across restarts; rotating it invalidates every issued API key. The generated value went to a dated credentials file on `~/Desktop` per the standing install convention.
-- The web UI allows open registration (`allowRegistration: true` in `/api/v1/status`) until disabled, and the first registered user creates the account.
+- The web UI allows open registration (`allowRegistration: true` in `/api/v1/status`) until disabled.
