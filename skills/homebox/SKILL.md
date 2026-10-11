@@ -79,7 +79,7 @@ Categories that stay out:
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
 - Storage boxes and containers.
-- Cables, connectors and accessory kits (an accessory kit is not recorded as a single item).
+- Cables and connectors.
 - Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
 - Items bought for someone else.
@@ -89,7 +89,7 @@ When the user rules out another category, it is added to this list.
 
 Board games are recorded as well (they come with rulebooks). Manuals decide scope: anything electronic, and anything the user assembles themselves (IKEA furniture, shelving, wardrobes), comes with a manual the user keeps, so it is recorded and its manual is attached. Furniture and small items without a manual are not tracked.
 
-An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
+An order that has been placed but not delivered yet is recorded straight away with the `ordered` tag and an `Expected Delivery` field; the tag and field are removed when it arrives. An order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
 Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `employer-owned` tag and a note saying so; their price stays empty when the employer paid.
 
@@ -98,6 +98,33 @@ Things that belong to another household member carry a person tag (their lowerca
 ## Following up on missing information
 
 The `needs-info` tag marks live items that lack information worth chasing, and the item's `Missing Info` field lists what: serial number (whole devices only, not peripherals or internal parts), model number (not furniture or board games), purchase date, and purchase price (not gifts or employer-owned items). `hb-needs-info` (this skill's directory) sets and clears the tag and field across the inventory and is safe to re-run; `--dry-run` shows what would change. Filter by the tag in Homebox, or `hb-api GET '/entities?tags=<tag id>'`, to work through the follow-ups, then run the script again to clear the completed ones.
+
+A kit that combines individual products is recorded as those products, never as a single kit item: a starter kit of bulbs and a remote becomes the bulbs and the remote, each with its own quantity. The kit's price is divided evenly over its pieces and the `Part Of Kit` and `Kit Price Split` fields say so.
+
+## Purchase history coverage
+
+Purchase history has been analysed per shop up to the dates below. A later sweep starts after these dates, so only newer orders need reading (search the mailbox with `fm-api` for mail after the date, or ask for a fresh order-history export).
+
+| Shop | Source | Covered through |
+|---|---|---|
+| Webhallen | Order mails and the full order-history page | 2026-10-11 |
+| AliExpress | Full order-history screenshots (the mails name no items before 2025) | 2026-10-11 |
+| Amazon.de | Order mails | 2026-09-23 |
+| Amazon.co.uk | Order mails | 2019-12 (two orders) |
+| Multitronic (Åland and Oy) | Order mails | 2026-04-07 |
+| Dustin Home | Order mails | 2013-12 (the last order) |
+| Apple Store | Order and invoice mails | 2016-10 |
+| Clas Ohlson (Finnish shop) | Order and shipping mails | 2026-01-06 |
+| Verkkokauppa.com | Order mails and one pasted order page | 2026-06-18 |
+| IKEA | Store receipts, and online orders | 2026-08-09 (store), 2024-11-11 (online) |
+| Elgiganten | Receipts | 2026-06-22 |
+| Blocket | Listing receipts (items offered for sale) | 2013-09 |
+
+Reviewed with nothing to record: PayPal receipts (software, services, tiny accessories), Klarna invoices, bank e-invoice notices (they name no merchants or items).
+
+Not covered: Amazon.com (USD) orders from 2022 and 2023, whose mails carry totals only and need the site's order history, and any shop that sends no email.
+
+Small purchases are skipped: AliExpress items under about 10 EUR, bare electronic components, clothing and costumes, utensils and consumables.
 
 ## Computers and their parts
 
