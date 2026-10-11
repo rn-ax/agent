@@ -75,7 +75,7 @@ A candidate that gets no answer is not created.
 Categories that stay out:
 - Cables.
 - Mounting hardware (wall, ceiling and desk mounts, brackets).
-- Batteries and power banks.
+- Batteries.
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
 - Simple chargers (charging hubs and stations are in scope).
