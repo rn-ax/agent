@@ -79,7 +79,7 @@ Categories that stay out:
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
 - Storage boxes and containers.
-- Cables, connectors and accessory kits (an accessory kit is not recorded as a single item).
+- Cables and connectors.
 - Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
 - Items bought for someone else.
@@ -98,6 +98,8 @@ Things that belong to another household member carry a person tag (their lowerca
 ## Following up on missing information
 
 The `needs-info` tag marks live items that lack information worth chasing, and the item's `Missing Info` field lists what: serial number (whole devices only, not peripherals or internal parts), model number (not furniture or board games), purchase date, and purchase price (not gifts or employer-owned items). `hb-needs-info` (this skill's directory) sets and clears the tag and field across the inventory and is safe to re-run; `--dry-run` shows what would change. Filter by the tag in Homebox, or `hb-api GET '/entities?tags=<tag id>'`, to work through the follow-ups, then run the script again to clear the completed ones.
+
+A kit that combines individual products is recorded as those products, never as a single kit item: a starter kit of bulbs and a remote becomes the bulbs and the remote, each with its own quantity. The kit's price is divided evenly over its pieces and the `Part Of Kit` and `Kit Price Split` fields say so.
 
 ## Computers and their parts
 
