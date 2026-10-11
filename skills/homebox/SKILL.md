@@ -68,9 +68,9 @@ Attachment names state the document and language, such as `User Manual (English)
 The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, always asked as "do you still own this?" (a selected item is owned), and the user confirms its status:
 - **Owned**: created as a normal item.
 - **Gone** (sold, thrown away, given away): created as an archived item, so the purchase history stays on record. A sale also gets `soldDate`, `soldTo`, `soldPrice` and `soldNotes`; any other exit is noted in `notes`.
-- **Not theirs** (bought for someone else, never kept): left out.
+- **Not theirs** (bought for someone else, never owned): left out, not archived.
 
-A candidate that gets no answer is not created.
+A candidate that gets no answer is not created. Candidates are presented item by item; a receipt or order is never approved as a whole, because one receipt mixes owned items, items for others, and out-of-scope items.
 
 Categories that stay out:
 - Cables.
@@ -78,6 +78,8 @@ Categories that stay out:
 - Batteries.
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
+- Storage furniture (shelves, bookcases, cabinets, wardrobes) and storage boxes and containers.
+- Cables, connectors and accessory kits (an accessory kit is not recorded as a single item).
 - Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
 - Items bought for someone else.
