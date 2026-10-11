@@ -18,6 +18,15 @@ Two domains with different roles:
 
 The Fastmail account also holds a default identity on a Fastmail-owned domain (`sent.com`) and an older `me.com` identity. `list_identities` shows the current set.
 
+## Per-service addresses
+
+Every service the user signs up for gets its own address at `rn.ax`, named after the service (for example `spotify@rn.ax`), and that address is the account email at the service. This gives two properties:
+
+- **Leak attribution**: mail arriving at `<service>@rn.ax` from a sender unrelated to that service shows which service leaked or sold the address.
+- **Targeted blocking**: a leaked address can be blocked on its own while every other address keeps working. Blocking is configured in Fastmail; the read-only token cannot change rules.
+
+`search_email` with `query: "to:<service>@rn.ax"` lists everything received at one address (an address with no mail returns an empty result). New signups use the same pattern: the lowercase service name as the local part.
+
 Fastmail uses **folders** (each message lives in one folder; `search_email` reports a `folder` object). Standard role folders exist (Inbox, Archive, Drafts, Sent, Spam, Trash, Snoozed, Templates). Archive is the long-term store. Custom folders include `Auto` and `Later`, plus a `[Mailbox]` tree with `Later`, `To Buy`, `To Read` and `To Watch`. `list_folders` returns the live tree with folder ids.
 
 ## Agent access
