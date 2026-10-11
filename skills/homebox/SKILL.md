@@ -65,7 +65,7 @@ Attachment names state the document and language, such as `User Manual (English)
 
 ## What goes in the inventory
 
-The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, and the user confirms its status:
+The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, always asked as "do you still own this?" (a selected item is owned), and the user confirms its status:
 - **Owned**: created as a normal item.
 - **Gone** (sold, thrown away, given away): created as an archived item, so the purchase history stays on record. A sale also gets `soldDate`, `soldTo`, `soldPrice` and `soldNotes`; any other exit is noted in `notes`.
 - **Not theirs** (bought for someone else, never kept): left out.
@@ -75,10 +75,18 @@ A candidate that gets no answer is not created.
 Categories that stay out:
 - Cables.
 - Mounting hardware (wall, ceiling and desk mounts, brackets).
+- Batteries and power banks.
+- Bags, backpacks and suitcases.
+- Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
+- Consumables and books.
 - Items bought for someone else.
 - Computer parts (drives, motherboards, RAM, CPUs, GPUs, coolers, drive stabilizers). They are added as child items of the computer they live in, once the computers are mapped; until then they wait in a scratch list.
 
 When the user rules out another category, it is added to this list.
+
+An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
+
+Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
 
 ## Importing from purchase emails
 
@@ -90,7 +98,9 @@ Order confirmations and receipts in the mailbox (see the `email` skill and its `
 4. **Show candidates newest first** per shop, durable items only, and wait for the user's confirmation per item.
 5. **Create** each approved item with the purchase fields below.
 
-Purchase facts go in the built-in fields: `purchaseDate` (`YYYY-MM-DD`, the order date), `purchasePrice`, `purchaseFrom` (the shop). `purchasePrice` is in the collection currency, EUR, converted at the ECB rate on the purchase date with `hb-eur <amount> <currency> <date>` (weekends use the previous business day). Custom fields keep the trail back to the source:
+Purchase facts go in the built-in fields: `purchaseDate` (`YYYY-MM-DD`, the order date), `purchasePrice`, `purchaseFrom` (the shop). `purchasePrice` is in the collection currency, EUR, converted at the ECB rate on the purchase date with `hb-eur <amount> <currency> <date>` (weekends use the previous business day).
+
+`purchasePrice` includes VAT. Retail prices paid in Sweden and in shops in Åland already include VAT. Online purchases delivered to the user's address in Åland (outside the EU VAT area; the user lives there from late 2019) are checked out without VAT, and the user pays it on arrival, so the price is the order-email price plus Finnish VAT at the purchase date (24% until 2024-08-31, 25.5% from 2024-09-01). The order-email price is kept in `Purchase Price (Original)` as `<amount> EUR excl. VAT`, and a `VAT` field records the rate added. When it is unclear whether a price includes VAT, the user is asked. The ship-to address in the order email shows where the user lived at the time. Custom fields keep the trail back to the source:
 - `Order Number`
 - `Purchase Price (Original)` (for example `7379 SEK`)
 - `Exchange Rate` (for example `1 SEK = 0.11292 EUR (2014-01-03)`)
