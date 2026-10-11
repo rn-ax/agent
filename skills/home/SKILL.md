@@ -18,6 +18,7 @@ This is the index for everything running across this user's home infrastructure.
 | NocoDB | Airtable-style data store | app on TrueNAS, `noco.rn.ax` | *(no dedicated skill yet)* |
 | Baserow | Airtable-style data store — hit paywalled features (unique constraint, row coloring) | app on TrueNAS, `baserow.rn.ax` / `truenas.lan:30163` (LAN, for API) | `baserow` |
 | Saltcorn | No-code app builder, genuinely no paid tier — chosen after NocoDB/Baserow both gated basic features | Custom App on TrueNAS, `truenas.lan:31399` (no public tunnel route yet) | `saltcorn` |
+| Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `truenas.lan:30149` (LAN only) | `homebox` |
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
 | Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
 | monocoque | Separate Django monorepo, several custom apps (`newshound`, etc.), deployed to TrueNAS too | repo at `~/Projects/monocoque` | its own repo docs, not a home-infra skill |

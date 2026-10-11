@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Authenticated Homebox REST API wrapper, using this account's Homebox token
+# and base URL (the "Homebox" item in the "Agent" 1Password vault; see the
+# `rn-config` skill for the item conventions this follows).
+# Usage: hb-api <method> <path> [curl-args...]
+#   hb-api GET /entities?q=mac&pageSize=5
+#   hb-api POST /tags -d '{"name": "electronics"}'
+#   hb-api POST /entities/<id>/attachments -F file=@manual.pdf -F type=manual -F name=Manual
+#
+# <path> is relative to <base_url>/api/v1 and must start with /. A multipart
+# upload (-F) needs the Content-Type header curl generates itself, so the
+# JSON default is only applied when no -F is passed.
+set -euo pipefail
+
+method="${1:?Usage: hb-api <method> <path> [curl-args...]}"
+path="${2:?Usage: hb-api <method> <path> [curl-args...]}"
+shift 2
+
+item_json="$(~/tasks/op-service-account item get Homebox --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
+base_url="${base_url%/}"
+token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+
+content_type=(-H "Content-Type: application/json")
+for arg in "$@"; do
+	if [[ "$arg" == "-F" || "$arg" == --form* ]]; then
+		content_type=()
+		break
+	fi
+done
+
+curl -sS -X "$method" "${base_url}/api/v1${path}" \
+	-H "Authorization: Bearer $token" \
+	"${content_type[@]}" \
+	"$@"
