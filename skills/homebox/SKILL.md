@@ -87,6 +87,8 @@ Categories that stay out:
 
 When the user rules out another category, it is added to this list.
 
+The test behind the list is whether the item is worth recording. A manual the user keeps is a reason to record an item that would otherwise be out of scope: IKEA furniture and smart bulbs are recorded for that reason, because the item's manual is attached to it. Without a kept manual, furniture is not tracked.
+
 An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
 Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
