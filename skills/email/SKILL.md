@@ -13,7 +13,7 @@ How the user's home email is set up and how an agent reads it. This repo is publ
 
 Two domains with different roles:
 
-- **`rn.ax`** is the real personal mail, hosted on Fastmail (the apex MX points at Fastmail). The Fastmail account has a wildcard sending identity for `*@rn.ax`, so any local-part at the domain is usable as a from-address.
+- **`rn.ax`** is the real personal mail, hosted on Fastmail (the apex MX points at Fastmail). The Fastmail account has a wildcard sending identity for `*@rn.ax`, so any local-part at the domain is usable as a from-address. Outgoing personal mail uses `d@rn.ax` as the sender by default; any other `@rn.ax` address works equally well when the context calls for it.
 - **`rutinerad.com`** is a side-project domain handled by Cloudflare Email Routing. One catch-all rule sends every message to the `windmill-mail-router` Worker, which turns the recipient's local-part into a Windmill flow call; see `windmill` for the addressing convention. No mailbox sits behind it.
 
 The Fastmail account also holds a default identity on a Fastmail-owned domain (`sent.com`) and an older `me.com` identity. `list_identities` shows the current set.
