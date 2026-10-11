@@ -78,7 +78,7 @@ Categories that stay out:
 - Batteries.
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
-- Storage furniture (shelves, bookcases, cabinets, wardrobes) and storage boxes and containers.
+- Storage boxes and containers.
 - Cables, connectors and accessory kits (an accessory kit is not recorded as a single item).
 - Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
@@ -87,7 +87,7 @@ Categories that stay out:
 
 When the user rules out another category, it is added to this list.
 
-The test behind the list is whether the item is worth recording. A manual the user keeps is a reason to record an item that would otherwise be out of scope: IKEA furniture and smart bulbs are recorded for that reason, because the item's manual is attached to it. Without a kept manual, furniture is not tracked.
+Manuals decide scope: anything electronic, and anything the user assembles themselves (IKEA furniture, shelving, wardrobes), comes with a manual the user keeps, so it is recorded and its manual is attached. Furniture and small items without a manual are not tracked.
 
 An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
