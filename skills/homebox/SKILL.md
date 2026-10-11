@@ -78,6 +78,7 @@ Categories that stay out:
 - Batteries and power banks.
 - Bags, backpacks and suitcases.
 - Simple kitchen utensils and accessories (spatulas, strainers, peelers, containers).
+- Simple chargers (charging hubs and stations are in scope).
 - Consumables and books.
 - Items bought for someone else.
 - Computer parts (drives, motherboards, RAM, CPUs, GPUs, coolers, drive stabilizers). They are added as child items of the computer they live in, once the computers are mapped; until then they wait in a scratch list.
