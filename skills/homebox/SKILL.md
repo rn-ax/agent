@@ -91,6 +91,8 @@ Board games are recorded as well (they come with rulebooks). Manuals decide scop
 
 An order that has not been delivered yet waits until it arrives, and an order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
+Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `employer-owned` tag and a note saying so; their price stays empty when the employer paid.
+
 Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
 
 ## Computers and their parts
