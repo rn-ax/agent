@@ -93,6 +93,15 @@ An order that has not been delivered yet waits until it arrives, and an order th
 
 Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
 
+## Computers and their parts
+
+A computer or NAS is an item, and its parts are child items (CPU, board, RAM, PSU, case, GPU, drives). The installed hardware is read from the machine itself and matched to purchase emails by model number or serial:
+- Linux hosts: `lscpu`, `lsblk -o NAME,MODEL,SERIAL,SIZE`, `dmidecode`, `lspci -v`, `nvidia-smi`.
+- Synology: `/proc/mdstat`, `/sys/block/*/device/model` and `/usr/syno/bin/synodisk --info /dev/<disk>`.
+- macOS: `system_profiler SPHardwareDataType SPStorageDataType`.
+
+A part that was replaced stays as an archived child with a note on what replaced it. A gift records the giver's purchase date and price when known, with a note saying it was a gift. An order page the user pastes works as a source in place of an email, and the `Source` field says so.
+
 ## Importing from purchase emails
 
 Order confirmations and receipts in the mailbox (see the `email` skill and its `fm-api`) are the source for purchase history.
