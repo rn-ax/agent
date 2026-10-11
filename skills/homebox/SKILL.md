@@ -65,7 +65,12 @@ Attachment names state the document and language, such as `User Manual (English)
 
 ## What goes in the inventory
 
-The inventory holds durable things the user owns. Each candidate is shown to the user with its date and price, and only items they confirm they still own are created. A candidate that gets no answer is not approved.
+The inventory holds durable things the user owns and has owned. Each candidate is shown to the user with its date and price, and the user confirms its status:
+- **Owned**: created as a normal item.
+- **Gone** (sold, thrown away, given away): created as an archived item, so the purchase history stays on record. A sale also gets `soldDate`, `soldTo`, `soldPrice` and `soldNotes`; any other exit is noted in `notes`.
+- **Not theirs** (bought for someone else, never kept): left out.
+
+A candidate that gets no answer is not created.
 
 Categories that stay out:
 - Cables.
@@ -107,4 +112,5 @@ Scratch work (harvest results, parsed items) stays outside the repo, since it co
 - Locations take asset IDs from the same sequence as items, so IDs are not contiguous across items.
 - Item search matches serial numbers and asset IDs (`q=%23000-012` finds asset `000-012`).
 - Uploads are capped by `HBOX_WEB_MAX_UPLOAD_SIZE` (MB), which defaults to 10. This instance sets it to 100 so full-size manuals fit; an over-limit upload fails with `Connection reset by peer` or `failed to parse multipart form`.
+- Archiving is a flag on the item (`archived: true`). Archived items are absent from default searches and lists, readable by id, and listed with `includeArchived=true`. Archive keeps the record, purchase details and attachments; delete removes them.
 - Homebox attachments can't be imported or exported through CSV, so files are uploaded through the API after the records exist.
