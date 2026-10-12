@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Sync the `needs-info` tag across the Homebox inventory.
+"""Sync the `Needs Info` tag across the Homebox inventory.
 
 A live (non-archived) item gets the tag and a `Missing Info` custom field naming
 what is missing; an item that is complete loses both. Safe to re-run.
 
 Checks:
-  serial number   whole devices only (laptop, phone, tablet, wearable, storage,
-                  network, display, av, camera, gaming, and computers placed
+  serial number   whole devices only (mobile devices, storage, network, displays,
+                  AV, cameras, gaming, and computers placed
                   directly in a location); not peripherals or internal parts
   model number    everything except furniture and board games
   purchase date   everything except gifts
@@ -19,9 +19,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 HB = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hb-api")
 DRY = "--dry-run" in sys.argv
-DEVICE_TAGS = {"laptop", "phone", "tablet", "wearable", "storage", "network", "display", "av", "camera", "gaming"}
-NO_SERIAL = {"peripheral"}
-NO_MODEL = {"furniture", "board-game"}
+DEVICE_TAGS = {"Mobile Devices", "Storage", "Network", "Displays", "AV", "Cameras", "Gaming"}
+NO_SERIAL = {"Peripherals"}
+NO_MODEL = {"Furniture", "Board Games"}
 
 
 def hb(method, path, body=None):
@@ -33,7 +33,7 @@ def missing(e):
     tags = {t["name"] for t in e["tags"]}
     miss = []
     top_level = (e["parent"] or {}).get("entityType", {}).get("isLocation", True)
-    is_device = bool(tags & DEVICE_TAGS) or ("computer" in tags and top_level)
+    is_device = bool(tags & DEVICE_TAGS) or ("Computers" in tags and top_level)
     if is_device and not (tags & NO_SERIAL) and not e["serialNumber"]:
         miss.append("serial number")
     if not (e["modelNumber"] or tags & NO_MODEL):
@@ -42,7 +42,7 @@ def missing(e):
     date = (e["purchaseDate"] or "").strip()
     if not gift and (not date or date.startswith("0001")):
         miss.append("purchase date")
-    if not gift and "employer-owned" not in tags and not e["purchasePrice"]:
+    if not gift and "Employer Owned" not in tags and not e["purchasePrice"]:
         miss.append("purchase price")
     return ", ".join(miss) or None
 
@@ -57,14 +57,14 @@ def main():
         page += 1
     with ThreadPoolExecutor(6) as ex:
         inv = list(ex.map(lambda i: hb("GET", f"/entities/{i['id']}"), items))
-    tag = next((t for t in hb("GET", "/tags") if t["name"] == "needs-info"), None) or hb("POST", "/tags", {"name": "needs-info"})
+    tag = next((t for t in hb("GET", "/tags") if t["name"] == "Needs Info"), None) or hb("POST", "/tags", {"name": "Needs Info"})
     counts = {"added": 0, "updated": 0, "removed": 0}
     for e in inv:
         if e["archived"] or e["entityType"]["isLocation"]:
             want = None
         else:
             want = missing(e)
-        has = any(t["name"] == "needs-info" for t in e["tags"])
+        has = any(t["name"] == "Needs Info" for t in e["tags"])
         current = next((f["textValue"] for f in e["fields"] if f["name"] == "Missing Info"), None)
         if want == current and has == bool(want):
             continue
@@ -72,7 +72,7 @@ def main():
         if DRY:
             continue
         full = dict(e)
-        full["tagIds"] = [t["id"] for t in e["tags"] if t["name"] != "needs-info"]
+        full["tagIds"] = [t["id"] for t in e["tags"] if t["name"] != "Needs Info"]
         full["parentId"] = e["parent"]["id"]
         full["fields"] = [f for f in e["fields"] if f["name"] != "Missing Info"]
         if want:
