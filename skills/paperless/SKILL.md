@@ -1,0 +1,75 @@
+---
+name: paperless
+description: Use whenever the user asks for help with their Paperless-ngx instance — upgrades (the v2 to v3 migration and the move to TrueNAS), documents that won't import or fail OCR ("PDF content stream is corrupt", Ghostscript PDF/A errors), the consume folder, the classifier, or anything about "paperless" explicitly. This is the accumulating knowledge base for how this user's Paperless is actually set up and behaves, so read it before assuming its architecture, upgrade state, or failure modes from scratch.
+---
+
+# Paperless-ngx
+
+This is the accumulating knowledge base for the user's Paperless-ngx instance. Fill in each section as it's actually confirmed; don't guess or leave stale placeholder content. Dates are when something was confirmed; versions move on, so re-check anything old before relying on it.
+
+**Related systems**: see the `truenas` skill — the stated plan is to move Paperless onto TrueNAS after it's on v3 (see "Migration plan" below). See the `home` skill for the topology map.
+
+## Instance
+
+Runs as the Docker container `paperless` on the Mac mini with hostname `server`, on port 14001 (`http://localhost:14001`). Everything operational lives in `~/Server/paperless`, which is not a git repository.
+
+- `Makefile`: `make start | stop | restart | update`, plus `make snapshot` and `make snapshot-diff` (see "Snapshots"). `IMAGE` is **pinned to an explicit version tag** (it was `:latest` until 2026-10-12, which would have jumped straight to the newest release on the next `make update`); an upgrade step is "edit `IMAGE`, `make restart`".
+- `data/`: SQLite database (`db.sqlite3`), classifier model (`classification_model.pickle`), search index, logs. Mounted into the container, **and not under `~/Paper`**, so a backup of `~/Paper` alone does not include the database.
+- `~/Paper/media`, `~/Paper/consume`, `~/Paper/export`: documents, the consume folder, exporter output. Mounted into the container.
+- `.env`: `PAPERLESS_FILENAME_FORMAT`, `PAPERLESS_OCR_LANGUAGES` (`swe fin eng`), `PAPERLESS_REDIS`, `PAPERLESS_SECRET_KEY`, `PAPERLESS_TIME_ZONE`, `PAPERLESS_URL`. Nothing else is set, so everything not listed is a Paperless default.
+- **Database is SQLite**. Redis is a Homebrew service on the host (launchd `homebrew.mxcl.redis`), reached from the container at `redis://host.docker.internal:6379`; there is no Redis container.
+- Credentials: none are recorded here.
+
+## Upgrade state and procedure
+
+Confirmed 2026-10-12: upgraded 2.20.10 to 2.20.15 to 3.0.5 to 3.1.3, one step at a time. Planned next: 3.3.0. **Skip v3.0.1** (its database migration is broken; fixed in 3.0.2) and **v3.2.0/3.2.1** (a bug that only bites with OCR `optimize` set to 2 or more; fixed in 3.3.0, and this instance doesn't set it, so skipping is caution rather than necessity). v3 can only be installed from exactly 2.20.15.
+
+Per step, in order: stop the container, copy the database with `sqlite3 data/db.sqlite3 ".backup '<dest>'"` (copies WAL-mode databases correctly) plus the classifier model, check the copy with `pragma integrity_check`, pin `IMAGE`, `make restart`, wait for `healthy` (a v3 start with migrations took about 2 minutes), then check `docker logs` for errors, confirm the container ID is stable with 0 restarts, and take a snapshot and diff it against the previous one.
+
+Things the migration guide (docs.paperless-ngx.com/migration-v3 — the site returns 403 to fetch tools; the same file is `docs/migration-v3.md` in the GitHub repo) doesn't spell out, all seen on this instance:
+- Migration `documents.0016_sha256_checksums` recomputes every document's checksum from MD5 to SHA-256 by reading all files (about a minute for 9,300 documents). A stored checksum that didn't match its file under v2 is silently replaced with the file's current hash, so a v2 "checksum mismatch" sanity error disappears without the file being fixed. Take note of any mismatch before upgrading.
+- The classifier model is deleted on the first v3 start (`ClassifierModelCorruptError ... deleting model file`). It retrains on the hourly schedule, or immediately with `docker exec paperless python3 manage.py document_create_classifier` (about 95 seconds).
+- Task history is dropped (migration 0019), so all failed/stuck task counters reset to zero.
+- The search index is rebuilt automatically on first start (smaller afterwards: 151 MB to 89 MB).
+- SQLite switches to WAL journal mode, adding `db.sqlite3-wal` and `-shm` next to the database. Copy with `sqlite3 .backup`, not `cp`, unless the container is stopped.
+- The sanity checker's output changed from log lines to a boxed table in v3; `snapshot.py` parses both.
+- `PAPERLESS_ARCHIVE_FILE_GENERATION` was deliberately left at the v3 default (`auto`): archive PDFs are skipped for born-digital PDFs that already contain text. v2 always created one. This was a deliberate choice, not an oversight. `PAPERLESS_CONSUMER_DELETE_DUPLICATES` was likewise left at the v3 default (duplicates are consumed with a warning and show in the document's Duplicates tab).
+
+## Snapshots
+
+`~/Server/paperless/snapshot.py` records the instance's state as JSON under `snapshots/`: versions, document counts and breakdowns, digests of titles/links/tags, config tables, migrations, task counts, file counts on disk plus any database rows whose files are missing, the sanity checker's results, and env var names (values only for a small non-secret allowlist). `make snapshot-diff OLD=... NEW=...` shows what changed. It is specific to this host and lives there, not in this skill. Expected differences across an upgrade: version and image fields, package versions, migration counts, and (across 2.20 to 3.0) the file-checksum digest, task tables and search index size.
+
+## Consuming documents
+
+- Only formats Paperless supports are consumed. `.zip`, `.pages` and `.md` files are logged as `Unknown file extension` and left in the consume folder indefinitely; move them elsewhere.
+- A file that fails stays in the consume folder and is retried every time the container starts (seen on the 3.1.3 restart: two failing PDFs added two failed tasks).
+- **The consume watcher can miss a file replaced in place.** Copying a repaired PDF over a same-named failed file produced no import; removing the file and creating it again did. When several files are recreated within a second of each other, one can be missed too, so recreate them one at a time and confirm each in `docker logs`.
+- The classifier's suggestions (document type, correspondent, tags) are applied at consume time only, so documents consumed while the model was missing get none until the model exists and they're edited (the UI suggests values on a document's detail page; the bulk editor can set them for a selection). Documents consumed with a trained model got a type and correspondent automatically.
+- Duplicates (same checksum) are consumed by default in v3 with a logged warning and appear in the Duplicates tab of the existing document. v2 rejected them and left the file behind.
+
+## PDFs that Paperless rejects
+
+**Workflow: analyze, then ask.** Run `analyze-pdf` (in this skill's directory; a uv script that installs pikepdf on first run, runs on the host, and is read-only) on the failing file. It prints JSON: a `summary` (pages, producer, encryption, text layer), a list of `findings` ordered by severity (each with `evidence`, the `ocrmypdf_impact` where known, and `possible_remedies`), and a `verdict` count. **Present the findings to the user in plain language and agree on what to do before changing any file** — the script deliberately never modifies or repairs anything, and every remedy changes what Paperless will store.
+- `analyze-pdf FILE.pdf` checks the content streams (wrong operand counts for fixed-arity operators, tokens that aren't operators, unparseable streams), the structure (pikepdf/qpdf syntax check and open-time warnings, header offset, encryption, fillable forms, signature fields), and the text layer.
+- `analyze-pdf FILE.pdf --probe-container paperless [--ocr-languages swe+fin+eng]` additionally copies the file into the container's `/tmp`, runs the container's own `ocrmypdf --skip-text --output-type pdfa` on it, reports exit code and output tail, and deletes the copy. This is the authoritative "would it be accepted" test and uses container CPU while it runs. Use it before proposing a fix and again on the fixed copy.
+- Exit code is 0 whenever the analysis ran (findings don't change it), 2 if the file can't be opened.
+
+**`InputFileError: PDF content stream is corrupt - this PDF is malformed`.** Confirmed cause for the two files that still failed on 3.0.5 (2026-10-12): the page content streams contain numbers written in exponent notation, e.g. `1 0 0 1 -1.0630028e+0 -1.13292e+09 cm`. PDF doesn't allow exponent notation (and some tokens look truncated, `e+0` where `e+09` was meant), so the tokenizer reads `-1.0630028e+0` as an unknown operator, which swallows the operands before it and leaves the following `cm` with too few; ocrmypdf then raises `ValueError: ObjectList must have 6 elements` from `ocrmypdf/pdfinfo/_contentstream.py` and Paperless wraps it as the message above. `analyze-pdf` reports this as `content_stream.exponent_notation_numbers` plus `content_stream.wrong_operand_count.cm`. Producers seen: macOS Quartz PDFContext and Haru Free PDF Library. Viewers such as poppler skip the whole broken instruction, and `pdfinfo` and `qpdf --check` don't look at content-stream semantics, so the file looks fine everywhere except in ocrmypdf. To see which error you have without the script, search `docker logs paperless` (or `data/log/paperless.log*`) for the filename and look for the `ValueError` line in the traceback.
+
+**How the two files were fixed (with the user's go-ahead), as a recipe rather than a tool**: rewrite each page/form content stream without the broken instructions using pikepdf (`parse_content_stream`, drop instructions with the wrong operand count or an unknown operator, `unparse_content_stream`, assign the new stream back to the page's `Contents` or the form's stream), save as a new file, compare renders before and after (`pdftoppm -r 80 -png`, byte-compare the PNGs — they were pixel-identical, as expected since viewers already skip those instructions), and run the container probe on the result. Then recreate the file in the consume folder under the original filename (see the watcher caveat above). **Paperless stores the repaired file as the document's original**, not the user's original bytes, so keep the untouched original elsewhere (it went to `~/Server/paperless/backups/failed-pdfs-original/`). Both files then imported, and the classifier assigned a type and correspondent.
+
+**`Ghostscript PDF/A rendering failed`** and **corrupt-stream errors that aren't the case above**: on 2.20.10 (ocrmypdf 16.12, pikepdf 10.0) 6 PDFs failed Ghostscript PDF/A rendering and 18 PDFs failed with the corrupt-stream error. After upgrading to 3.0.5 (ocrmypdf 17.4, pikepdf 10.2) all 6 Ghostscript failures and 16 of the 18 corrupt-stream failures imported without any change to the files; the 2 that remained were the exponent-notation case above. The ocrmypdf upgrade is the likely reason but was not isolated. One file's Ghostscript failure followed ocrmypdf's "This PDF has a fillable form" warning, which `analyze-pdf` reports as `structure.fillable_form`.
+
+## Known baseline issues (2026-10-12)
+
+Reported by the sanity checker and unrelated to upgrades: 49 documents with no OCR text, 2 orphaned files under `media/documents/{originals,archive}/Prov - tentamen/2023/`, and (until the SHA-256 migration) a checksum mismatch on document #1019 (stored MD5 `7e4e0bdee5bbc54474030c43b53fb638`; the file on disk hashed differently, cause unknown). The pre-v3 database copy kept in `~/Server/paperless/backups/pre-v3/` still has the original value.
+
+## Migration plan
+
+The goal is to reach v3 first, then move to TrueNAS ("so that we can then seamlessly migrate"). Things that matter for the move, from the v3 notes (not yet exercised on TrueNAS):
+- WAL mode does not work on a network filesystem (NFS/SMB), so `data/` must sit on local storage on whatever runs the container, e.g. a dataset on the same machine.
+- `PAPERLESS_SECRET_KEY` is required in v3 and must be carried over.
+- The classifier needs an `x86-64-v2` CPU on x86 hosts (not an issue on Apple Silicon).
+- `document_exporter` writes a version-independent export into `~/Paper/export`.
+- If login returns 403 behind a reverse proxy or Cloudflare tunnel, set `PAPERLESS_TRUSTED_PROXIES` / `PAPERLESS_ALLAUTH_TRUSTED_PROXY_COUNT`.
+- API v1 and API versions below 9 were removed in v3; nothing under `~/Server` called the API when checked, but clients outside it (phone apps, browser extensions) weren't.

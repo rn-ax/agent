@@ -1,0 +1,315 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pikepdf>=10,<11"]
+# ///
+"""Analyze a PDF that Paperless/ocrmypdf rejects and print JSON findings.
+
+Read-only: never modifies the input. Prints one JSON document on stdout
+(diagnostics go to stderr). It reports *possible* causes with evidence; it
+does not decide what to do. The calling agent should present the findings to
+the user and agree on a course of action before changing any file.
+
+Usage:
+    analyze-pdf FILE.pdf
+    analyze-pdf FILE.pdf --probe-container paperless [--ocr-languages swe+fin+eng]
+
+--probe-container additionally copies the file into the named Docker
+container's /tmp, runs the same ocrmypdf the container uses on it, reports
+the result, and removes the copy. That is the authoritative test of whether
+the file would be accepted; it costs container CPU for the duration.
+
+Exit code: 0 if the analysis ran (regardless of findings), 2 if the file
+could not be opened at all.
+"""
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import uuid
+from collections import defaultdict
+from pathlib import Path
+
+import pikepdf
+
+# Fixed operand counts for PDF content-stream operators (PDF 32000-1, Annex A).
+# Variable-arity colour operators (SC, sc, SCN, scn) are deliberately omitted.
+ARITY = {
+    "b": 0, "B": 0, "b*": 0, "B*": 0, "BDC": 2, "BMC": 1, "BT": 0, "BX": 0,
+    "c": 6, "cm": 6, "CS": 1, "cs": 1, "d": 2, "d0": 2, "d1": 6, "Do": 1,
+    "DP": 2, "EMC": 0, "ET": 0, "EX": 0, "f": 0, "F": 0, "f*": 0, "G": 1,
+    "g": 1, "gs": 1, "h": 0, "i": 1, "j": 1, "J": 1, "K": 4, "k": 4, "l": 2,
+    "m": 2, "M": 1, "MP": 1, "n": 0, "q": 0, "Q": 0, "re": 4, "RG": 3,
+    "rg": 3, "ri": 1, "s": 0, "S": 0, "sh": 1, "T*": 0, "Tc": 1, "Td": 2,
+    "TD": 2, "Tf": 2, "Tj": 1, "TJ": 1, "TL": 1, "Tm": 6, "Tr": 1, "Ts": 1,
+    "Tw": 1, "Tz": 1, "v": 4, "w": 1, "W": 0, "W*": 0, "y": 4, "'": 1, '"': 3,
+}
+KNOWN_OPERATORS = set(ARITY) | {"SC", "sc", "SCN", "scn", "BI", "ID", "EI"}
+MAX_EXAMPLES = 5
+EXPONENT_NUMBER = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)[eE][+-]?\d*$")
+
+
+def short(obj, limit=40):
+    text = str(obj)
+    return text if len(text) <= limit else text[:limit] + "..."
+
+
+def content_streams(pdf):
+    """Yield (label, kind, object) for every page and reachable Form XObject."""
+    seen = set()
+
+    def forms(holder, label):
+        res = holder.get("/Resources")
+        xobjects = res.get("/XObject") if res is not None else None
+        for name, x in (xobjects.items() if xobjects is not None else []):
+            if x.get("/Subtype") == "/Form" and x.objgen not in seen:
+                seen.add(x.objgen)
+                yield f"{label} > {name}", "form", x
+                yield from forms(x, f"{label} > {name}")
+
+    for i, page in enumerate(pdf.pages):
+        yield f"page {i + 1}", "page", page
+        yield from forms(page.obj, f"page {i + 1}")
+
+
+def finding(fid, severity, message, evidence=None, ocrmypdf_impact=None, possible_remedies=None):
+    f = {"id": fid, "severity": severity, "message": message}
+    if evidence is not None:
+        f["evidence"] = evidence
+    if ocrmypdf_impact:
+        f["ocrmypdf_impact"] = ocrmypdf_impact
+    if possible_remedies:
+        f["possible_remedies"] = possible_remedies
+    return f
+
+
+def analyze_content(pdf, findings):
+    bad_arity = defaultdict(lambda: {"count": 0, "streams": set(), "examples": []})
+    unknown = defaultdict(lambda: {"count": 0, "streams": set(), "examples": []})
+    unparseable = []
+    n_streams = 0
+    for label, kind, obj in content_streams(pdf):
+        n_streams += 1
+        try:
+            instructions = pikepdf.parse_content_stream(obj)
+        except Exception as e:
+            unparseable.append({"stream": label, "error": short(e, 160)})
+            continue
+        for idx, inst in enumerate(instructions):
+            if not isinstance(inst, pikepdf.ContentStreamInstruction):
+                continue  # inline image
+            op, operands = str(inst.operator), inst.operands
+            if op not in KNOWN_OPERATORS:
+                rec = unknown[op]
+            elif op in ARITY and len(operands) != ARITY[op]:
+                rec = bad_arity[op]
+                rec["expected"] = ARITY[op]
+            else:
+                continue
+            rec["count"] += 1
+            rec["streams"].add(label)
+            if len(rec["examples"]) < MAX_EXAMPLES:
+                rec["examples"].append({"stream": label, "instruction_index": idx,
+                                        "operands": [short(o) for o in operands][:8],
+                                        "operand_count": len(operands)})
+
+    for op, rec in sorted(bad_arity.items()):
+        fatal = op == "cm"
+        findings.append(finding(
+            f"content_stream.wrong_operand_count.{op}",
+            "error" if fatal else "warning",
+            f"Operator '{op}' appears {rec['count']} time(s) with a wrong number of operands "
+            f"(expected {rec['expected']}). Malformed per the PDF spec; most viewers skip it silently.",
+            {"operator": op, "expected_operands": rec["expected"], "occurrences": rec["count"],
+             "streams": sorted(rec["streams"]), "examples": rec["examples"]},
+            ("Confirmed to make ocrmypdf abort with 'ValueError: ObjectList must have 6 elements', "
+             "which Paperless reports as 'PDF content stream is corrupt'." if fatal else
+             "Not confirmed to be fatal for ocrmypdf; the error text will tell."),
+            ["See content_stream.exponent_notation_numbers: these usually come from numbers written "
+             "in exponent notation. Remedies are listed there.",
+             "If no such finding is present, the instructions are malformed for another reason; "
+             "dropping them (pikepdf parse/unparse) and re-testing with ocrmypdf is still an option."]))
+
+    exponent = {op: rec for op, rec in unknown.items() if EXPONENT_NUMBER.match(op)}
+    other = {op: rec for op, rec in unknown.items() if op not in exponent}
+    if exponent:
+        findings.append(finding(
+            "content_stream.exponent_notation_numbers",
+            "error" if bad_arity else "warning",
+            "Content streams contain numbers written in exponent notation (e.g. '-1.0630028e+09'), "
+            "which the PDF format does not allow. The parser reads such a token as an unknown "
+            "operator, which swallows the operands before it and leaves the next operator with too "
+            "few. This is the usual underlying cause of the wrong_operand_count findings. Some "
+            "tokens look truncated (e.g. 'e+0' where 'e+09' was meant), so the intended values "
+            "cannot be recovered reliably.",
+            {"token_count": sum(r["count"] for r in exponent.values()),
+             "tokens": {op: {"count": r["count"], "streams": sorted(r["streams"]),
+                             "examples": r["examples"]} for op, r in sorted(exponent.items())}},
+            "Makes ocrmypdf abort with 'PDF content stream is corrupt' when the broken tokens are "
+            "operands of a 'cm' (seen in both files this was written for: Quartz PDFContext and "
+            "Haru producers). Viewers such as poppler skip the whole broken instruction, so what "
+            "the user sees already excludes it.",
+            ["Rewrite the affected content streams without the broken instructions (pikepdf "
+             "parse_content_stream / unparse_content_stream), compare renders before/after, and "
+             "re-test with ocrmypdf. Paperless would then store the rewritten file as the "
+             "document's original, so keep the untouched original elsewhere.",
+             "Re-print or re-export the document from its source application."]))
+    if other:
+        findings.append(finding(
+            "content_stream.unknown_operators", "warning",
+            "Content streams contain tokens that are not PDF operators.",
+            {"operators": {op: {"count": r["count"], "streams": sorted(r["streams"]),
+                               "examples": r["examples"]} for op, r in sorted(other.items())}},
+            "Not observed to be fatal on its own for ocrmypdf."))
+    if unparseable:
+        findings.append(finding(
+            "content_stream.unparseable", "error",
+            "pikepdf could not parse one or more content streams at all.",
+            {"streams": unparseable},
+            "Likely fatal for ocrmypdf ('PDF content stream is corrupt')."))
+    return n_streams
+
+
+def analyze_structure(pdf, path, summary, findings):
+    problems = []
+    try:
+        problems += [str(p) for p in pdf.check_pdf_syntax() if p]
+        problems += [f"(on open) {w}" for w in pdf.get_warnings() if w]
+    except Exception as e:
+        problems.append(f"structural check raised: {short(e, 160)}")
+    if problems:
+        findings.append(finding(
+            "structure.qpdf_check", "warning",
+            "qpdf's structural check reported problems.", {"problems": problems[:20]},
+            "May or may not matter; qpdf repairs many of these silently on load."))
+
+    root = pdf.Root
+    acro = root.get("/AcroForm")
+    if acro is not None:
+        fields = acro.get("/Fields") or []
+        sigs = [f for f in fields if f.get("/FT") == "/Sig"]
+        summary["has_acroform"] = True
+        summary["has_xfa"] = "/XFA" in acro
+        findings.append(finding(
+            "structure.fillable_form", "info",
+            "The PDF has an AcroForm (fillable form fields).",
+            {"field_count": len(fields), "signature_fields": len(sigs), "xfa": "/XFA" in acro},
+            "ocrmypdf warns 'This PDF has a fillable form'. In the Paperless logs, a Ghostscript "
+            "'PDF/A rendering failed' error was seen right after that warning on one file."))
+        if sigs:
+            findings.append(finding(
+                "structure.digital_signature", "warning",
+                "The PDF contains signature fields; OCR/PDF-A processing invalidates signatures.",
+                {"signature_fields": len(sigs)}))
+    if pdf.is_encrypted:
+        findings.append(finding(
+            "structure.encrypted", "warning", "The PDF is encrypted.",
+            {"R": pdf.encryption.R, "user_password_required": False},
+            "ocrmypdf cannot process encrypted PDFs; Paperless has a password removal workflow "
+            "action in v3 if the password is known."))
+    mark = root.get("/MarkInfo")
+    summary["tagged"] = bool(mark is not None and mark.get("/Marked", False))
+
+    with open(path, "rb") as fh:
+        head = fh.read(1024)
+    pos = head.find(b"%PDF-")
+    if pos != 0:
+        findings.append(finding(
+            "file.header_offset", "warning" if pos > 0 else "error",
+            "The '%PDF-' header is not at byte 0." if pos > 0 else "No '%PDF-' header in the first 1 KB.",
+            {"header_offset": pos}))
+
+
+def text_layer(path, findings, summary):
+    if not shutil.which("pdftotext"):
+        summary["text_layer"] = "unknown (pdftotext not installed)"
+        return
+    r = subprocess.run(["pdftotext", "-l", "5", str(path), "-"], capture_output=True, text=True)
+    chars = len(re.sub(r"\s", "", r.stdout))
+    summary["text_chars_first_5_pages"] = chars
+    summary["text_layer"] = "present" if chars > 50 else "absent or minimal"
+    if chars > 50:
+        findings.append(finding(
+            "content.born_digital", "info",
+            "The PDF already has an embedded text layer.",
+            {"text_chars_first_5_pages": chars},
+            "On Paperless v3 with ARCHIVE_FILE_GENERATION=auto (default), no archive PDF is made "
+            "for born-digital PDFs and OCR is skipped, which avoids Ghostscript PDF/A conversion."))
+
+
+def probe_container(container, path, languages, findings):
+    work = f"/tmp/pdf-probe-{uuid.uuid4().hex[:8]}"
+    result = {"container": container, "ocr_languages": languages}
+    try:
+        subprocess.run(["docker", "exec", container, "mkdir", work], check=True, capture_output=True)
+        subprocess.run(["docker", "cp", str(path), f"{container}:{work}/in.pdf"], check=True, capture_output=True)
+        r = subprocess.run(
+            ["docker", "exec", container, "sh", "-c",
+             f"cd {work} && ocrmypdf --skip-text -l {languages} --output-type pdfa in.pdf out.pdf 2>&1; "
+             f"echo EXIT=$?; ocrmypdf --version"],
+            capture_output=True, text=True, timeout=600)
+        lines = [l for l in r.stdout.splitlines() if l.strip()]
+        exit_line = next((l for l in lines if l.startswith("EXIT=")), "EXIT=?")
+        result.update({"ocrmypdf_version": lines[-1] if lines else None,
+                       "exit_code": int(exit_line[5:]) if exit_line[5:].isdigit() else None,
+                       "output_tail": [l for l in lines if not l.startswith("EXIT=")][-8:-1]})
+        ok = result["exit_code"] == 0
+        findings.append(finding(
+            "probe.ocrmypdf_accepts_file" if ok else "probe.ocrmypdf_rejects_file",
+            "info" if ok else "error",
+            "ocrmypdf in the container processed the file successfully." if ok else
+            "ocrmypdf in the container rejected the file; see output_tail for its error.",
+            result))
+    except Exception as e:
+        findings.append(finding("probe.failed", "warning", f"Could not run the container probe: {short(e, 200)}"))
+    finally:
+        subprocess.run(["docker", "exec", container, "rm", "-rf", work], capture_output=True)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("input", type=Path)
+    ap.add_argument("--probe-container", metavar="NAME")
+    ap.add_argument("--ocr-languages", default="eng")
+    args = ap.parse_args()
+
+    data = args.input.read_bytes()
+    summary = {"file": str(args.input), "size_bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    findings = []
+    try:
+        with pikepdf.open(args.input) as pdf:
+            info = pdf.docinfo
+            summary.update({
+                "pdf_version": pdf.pdf_version, "pages": len(pdf.pages), "encrypted": pdf.is_encrypted,
+                "producer": str(info.get("/Producer", "")) or None,
+                "creator": str(info.get("/Creator", "")) or None,
+            })
+            summary["content_streams_examined"] = analyze_content(pdf, findings)
+            analyze_structure(pdf, args.input, summary, findings)
+    except pikepdf.PasswordError:
+        findings.append(finding("structure.password_required", "error", "The PDF needs a password to open."))
+    except Exception as e:
+        findings.append(finding("file.cannot_open", "error", "pikepdf could not open the file.",
+                                {"error": short(e, 300)}))
+        print(json.dumps({"summary": summary, "findings": findings}, indent=2))
+        return 2
+    text_layer(args.input, findings, summary)
+    if args.probe_container:
+        probe_container(args.probe_container, args.input, args.ocr_languages, findings)
+
+    order = {"error": 0, "warning": 1, "info": 2}
+    findings.sort(key=lambda f: order[f["severity"]])
+    print(json.dumps({"summary": summary, "findings": findings,
+                      "verdict": {"errors": sum(f["severity"] == "error" for f in findings),
+                                  "warnings": sum(f["severity"] == "warning" for f in findings)}},
+                     indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
