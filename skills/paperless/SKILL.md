@@ -22,7 +22,7 @@ Runs as the Docker container `paperless` on the Mac mini with hostname `server`,
 
 ## Upgrade state and procedure
 
-Confirmed 2026-10-12: upgraded 2.20.10 to 2.20.15 to 3.0.5 to 3.1.3, one step at a time. Planned next: 3.3.0. **Skip v3.0.1** (its database migration is broken; fixed in 3.0.2) and **v3.2.0/3.2.1** (a bug that only bites with OCR `optimize` set to 2 or more; fixed in 3.3.0, and this instance doesn't set it, so skipping is caution rather than necessity). v3 can only be installed from exactly 2.20.15.
+Confirmed 2026-10-12: upgraded 2.20.10 to 2.20.15 to 3.0.5 to 3.1.3 to 3.3.0 (current), one step at a time, with a snapshot diff after each. The last three steps took about 2 minutes each to become healthy and the 3.1.3 and 3.3.0 steps changed nothing in the snapshot except versions, package versions, migration counts and index size. **Skipped v3.0.1** (its database migration is broken; fixed in 3.0.2) and **v3.2.0/3.2.1** (a bug that only bites with OCR `optimize` set to 2 or more; fixed in 3.3.0, and this instance doesn't set it, so skipping is caution rather than necessity). v3 can only be installed from exactly 2.20.15.
 
 Per step, in order: stop the container, copy the database with `sqlite3 data/db.sqlite3 ".backup '<dest>'"` (copies WAL-mode databases correctly) plus the classifier model, check the copy with `pragma integrity_check`, pin `IMAGE`, `make restart`, wait for `healthy` (a v3 start with migrations took about 2 minutes), then check `docker logs` for errors, confirm the container ID is stable with 0 restarts, and take a snapshot and diff it against the previous one.
 
