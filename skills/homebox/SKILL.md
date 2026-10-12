@@ -110,7 +110,7 @@ A later sweep starts after the dates below, so only newer orders need reading: s
 | Shop | Order mails | Website order history |
 |---|---|---|
 | Webhallen | Read through 2026-08 | Complete through 2026-10-11 |
-| AliExpress | Name no items before 2025 | Complete through 2026-10-11, except that the range around 2024-07 still needs a recheck for one item |
+| AliExpress | Name no items before 2025 | Complete through 2026-10-11 |
 | Amazon.de | Read through 2026-09-23 | Not read |
 | Amazon.com (USD) | Totals only, no item names | Not read |
 | Amazon.co.uk | Read through 2019-12 (two orders) | Not read |
