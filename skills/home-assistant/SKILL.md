@@ -104,7 +104,7 @@ The Companion App's **"Perform Action"** Shortcuts action (call any HA service f
 
 ## Device & entity notes
 
-`references/devices.md` holds per-device knowledge that the config and entity list don't show on their own — behavioural quirks, what a misleadingly-named entity actually means, why a custom entity was built a certain way. Read the relevant section when a task touches a specific device, and add one when you set a device up (keep it to what's *not* already readable from Developer Tools). Covered so far: Traeger smoker, Shelly 2PM Gen4 (Zigbee).
+`references/devices.md` holds per-device knowledge that the config and entity list don't show on their own — behavioural quirks, what a misleadingly-named entity actually means, why a custom entity was built a certain way. Read the relevant section when a task touches a specific device, and add one when you set a device up (keep it to what's *not* already readable from Developer Tools). Covered so far: Traeger smoker; Shelly devices have their own `shelly` skill.
 
 ## TrueNAS integration
 

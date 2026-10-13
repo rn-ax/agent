@@ -20,6 +20,7 @@ This is the index for everything running across this user's home infrastructure.
 | Saltcorn | No-code app builder, genuinely no paid tier — chosen after NocoDB/Baserow both gated basic features | Custom App on TrueNAS, `truenas.lan:31399` (no public tunnel route yet) | `saltcorn` |
 | Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `https://home.rn.ax` (Cloudflare Access), LAN `truenas.lan:30149` | `homebox` |
 | Backups | Backup design and status: TrueNAS data, Macs, the M1 Mac mini backup server with its drive enclosure, offsite copies | `server.lan` (planned target), TrueNAS `Storage` pool (source) | `backup` |
+| Shelly devices | Shelly relays and other Shelly gear (the office 2PM Gen4 on Zigbee through ZHA): pairing, profiles, firmware, wall-switch inputs | paired to Home Assistant, Wi-Fi on the IoT network | `shelly` |
 | Fastmail | Personal email (`rn.ax`), calendar, contacts; read-only MCP token for agents | hosted, `api.fastmail.com/mcp` | `email` |
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
 | Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
