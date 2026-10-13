@@ -32,6 +32,15 @@ Being on a separate, security-isolated network matters for anything that needs t
 
 **Restarting HA core is slow and disruptive on this instance** (it has a lot of integrations — Sonos, MQTT, ESPHome, etc. — full startup takes a couple of minutes) — treat it as a real cost, not a routine step after every deploy. It's only actually necessary for a **Python code change**: HA caches imported modules in memory, so editing a `.py` file in `custom_components/` and reloading the config entry alone reuses the stale in-memory version, not what's on disk — only a full core restart re-imports it. A config-entry reload (no restart) is enough for anything that doesn't change code (re-reading YAML config, retrying a failed setup, picking up a HACS download once `pending-restart` has already cleared some other way). When multiple code changes are coming in the same session, batch them into one `rsync` + one restart instead of restarting after each file.
 
+## How this instance is configured
+
+The live instance is the source of truth for its configuration, so read it before advising on integrations, protocols or devices. Three views cover it:
+- **Integrations**: `GET /api/config/config_entries/entry` lists every config entry with `domain`, `title` and `state`. Zigbee runs through **ZHA** on a Sonoff Zigbee 3.0 USB Dongle Plus attached to the Pi (`/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_*`; its Homebox record is the `SONOFF ZBDongle-P` entity). Other protocol entries: MQTT (Mosquitto broker), ESPHome, Thread, and Matter (config entry present, `not_loaded` as of 2026-10-13). Re-check these over the API when a protocol choice depends on them.
+- **Files**: `ssh root@192.168.3.71`, config under `/config` (`configuration.yaml` plus its `!include` files, `custom_components/`, `zigbee.db` for the ZHA network, add-on data in `/addon_configs`).
+- **Hardware**: the Pi and what is plugged into it are Homebox entities (`Raspberry Pi 5 (8 GB)`); look devices up there, see the `home` skill.
+
+New Zigbee devices pair through ZHA (Settings → Devices & Services → ZHA → Add device); for a device with multiple radio profiles, switch it to its Zigbee profile first.
+
 ## Router monitoring/control project
 
 Tracked as atask 185 (parent) and its children — check `atask show 185` for current status rather than assuming this file has it. The integration itself lives in `rn-ax/ha-inteno-router`.

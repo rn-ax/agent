@@ -26,6 +26,10 @@ This is the index for everything running across this user's home infrastructure.
 | Contabo hosts | Two VPS boxes running self-hosted GitHub/Gitea Actions runners + a few small apps; reach TrueNAS directly over Cloudflare WARP | `contabo-1`/`contabo-2`, IaC at `~/Projects/rn-infra` | `contabo-hosts` |
 | agent-tasks (`atask`) | Cross-session task queue, not a home system but referenced constantly when scoping multi-session work | `~/Projects/agent-tasks` | `todo` skill |
 
+## Devices and hardware live in Homebox
+
+Every device in the house — smart-home gear, servers, network equipment, peripherals, appliances — is recorded in Homebox (see the `homebox` skill), with exact model numbers, specs, connectivity and manuals. Any task that involves a physical device starts with a Homebox lookup (`hb-api GET '/entities?q=<term>'`), before web searches or questions to the user. Typical payoffs: which radios and ports a device has, what hardware a host carries (a Zigbee dongle on the Home Assistant Pi, say), and whether the user already owns something that solves the problem. The map above lists the software systems; Homebox is the source for the hardware under and around them.
+
 ## Topology notes that matter across systems
 
 - **Two VLANs, not one flat network.** Main LAN (`192.168.1.x`) has TrueNAS and the router itself; Home Assistant sits deliberately isolated on `192.168.3.x` for security. Any integration crossing that boundary (Windmill on TrueNAS talking to Home Assistant, say) needs the reachability confirmed explicitly — don't assume it works because both are "on the home network." See `home-network` for the full VLAN breakdown and `home-assistant` for the confirmed-reachable path to the router specifically.
