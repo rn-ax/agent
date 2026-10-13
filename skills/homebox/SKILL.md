@@ -7,7 +7,7 @@ description: Use whenever the user asks about their home inventory — what they
 
 The user's home inventory: everything they own (loosely defined), with exact specs, links to relevant pages, and PDF manuals, searchable by an agent.
 
-**Related systems**: Homebox runs as an app on TrueNAS — see the `truenas` skill for the install playbook and `apps.md` for this app's install notes; `home` has the topology map.
+**Related systems**: Homebox runs as an app on TrueNAS — see the `truenas` skill for the install playbook and "TrueNAS deployment" below for this app's install notes; `home` has the topology map.
 
 ## Instance
 
@@ -185,3 +185,13 @@ Scratch work (harvest results, parsed items) stays outside the repo, since it co
 - Phone photos in HEIC are converted before upload with `sips -s format jpeg -Z 1600 in.HEIC --out out.jpg`, which keeps them small and viewable in Homebox.
 - A custom field's text value holds at most 500 characters; a longer value makes `PUT /entities/{id}` answer `500 Unknown Error`. Long procedures are split over several fields (for example `Setup` and `Rebuild And Recovery`).
 - `PUT /entities/{id}` applies its field list as it goes: a field with an `id` is updated, a field without one is created, and a field left out of the list is deleted. A request that fails partway keeps the changes made before the failure (duplicate field names are the visible sign), so after any error `GET` the entity and tidy it by sending the list again. The update body needs only the `EntityUpdate` keys (`name`, `description`, `notes`, `manufacturer`, `modelNumber`, purchase fields, `quantity`, `parentId`, `tagIds`, `fields`), with each existing field reduced to `id`, `name`, `type`, `textValue`.
+
+## TrueNAS deployment
+
+Installed 2026-10-11 from the `community` catalog train via `app.create` (app name `homebox`, compose project `ix-homebox`), published on port `30149`. See the `homebox` skill for the API and inventory conventions.
+
+- The container runs as `568:568` (`apps:apps`) with one persistent mount, `/data`, bound to `Storage/Configuration/homebox/data` as a host path. No ACL grant is needed.
+- The catalog's `values.storage` accepts only `data`; passing `additional_storage` fails validation with `values.storage.additional_storage: Field was not expected`.
+- `values.homebox.api_key_pepper` is required and must stay stable across restarts; rotating it invalidates every issued API key. The generated value went to a dated credentials file on `~/Desktop` per the standing install convention.
+- The web UI allows open registration (`allowRegistration: true` in `/api/v1/status`) until disabled.
+- `HBOX_WEB_MAX_UPLOAD_SIZE=100` is set through `values.homebox.additional_envs` (the default is 10 MB, too small for PDF manuals). Changing it goes through `app.update` with the full `app.config` values minus the `ix_*` keys, followed by `app.redeploy`.
