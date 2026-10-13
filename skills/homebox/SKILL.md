@@ -39,7 +39,8 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 - **Custom fields** carry the remaining specs. Names are Title Case and reused across items — check `GET /entities/fields` for names already in use before inventing one. Values carry their unit (`16 GB unified`). The API accepts `text`, `number`, `boolean` and `time` types; use `text` for specs so the unit stays attached.
 - **Links** go in a text custom field as markdown, `[Label](https://…)`, which Homebox renders as a clickable button.
 - **Child items** model parts that have their own serial or warranty — a server's disks are children of the server item.
-- **Tags** are lowercase single words (`computer`, `homelab`, `storage`) and describe what the item is or does.
+- **Tags** follow Homebox's own defaults: Title Case names for broad categories (`Appliances`, `Electronics`, `Servers`, `IOT`, plus `Computers`, `Storage`, `Audio`, `AV`, `Displays`, `Kitchen`, `Tools` and so on), kept to a small set that is reused rather than one tag per product type. Smart-home devices are `IOT`, homelab and server hardware is `Servers`, and powered household devices are `Appliances`.
+- **Status and person tags** use the same style: `Ordered`, `Needs Info`, `Employer Owned`, and one tag per household member named after them.
 - **Attachments** use the type that matches the file (`manual`, `warranty`, `photo` or `attachment`); see "Documents worth attaching" for what to include.
 - **Description** is markdown and holds the one-line "what is this and what is it for".
 
@@ -89,15 +90,15 @@ When the user rules out another category, it is added to this list.
 
 Board games are recorded as well (they come with rulebooks). Manuals decide scope: anything electronic, and anything the user assembles themselves (IKEA furniture, shelving, wardrobes), comes with a manual the user keeps, so it is recorded and its manual is attached. Furniture and small items without a manual are not tracked.
 
-An order that has been placed but not delivered yet is recorded straight away with the `ordered` tag and an `Expected Delivery` field; the tag and field are removed when it arrives. An order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
+An order that has been placed but not delivered yet is recorded straight away with the `Ordered` tag and an `Expected Delivery` field; the tag and field are removed when it arrives. An order that never shipped is dropped. A repeated identical order placed minutes or days apart is checked for fulfilment emails ("finns att hämta", "shipped"): when only one was fulfilled it is a single item, and when both were, the user is asked how many they received.
 
-Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `employer-owned` tag and a note saying so; their price stays empty when the employer paid.
+Employer-owned items the user has in their possession (a work laptop, a work phone) are recorded too, with the `Employer Owned` tag and a note saying so; their price stays empty when the employer paid.
 
-Things that belong to another household member carry a person tag (their lowercase first name) and sit among the rest of the inventory.
+Things that belong to another household member carry a person tag (their first name, in Title Case) and sit among the rest of the inventory.
 
 ## Following up on missing information
 
-The `needs-info` tag marks live items that lack information worth chasing, and the item's `Missing Info` field lists what: serial number (whole devices only, not peripherals or internal parts), model number (not furniture or board games), purchase date, and purchase price (not gifts or employer-owned items). `hb-needs-info` (this skill's directory) sets and clears the tag and field across the inventory and is safe to re-run; `--dry-run` shows what would change. Filter by the tag in Homebox, or `hb-api GET '/entities?tags=<tag id>'`, to work through the follow-ups, then run the script again to clear the completed ones.
+The `Needs Info` tag marks live items that lack information worth chasing, and the item's `Missing Info` field lists what: serial number (whole devices only, not peripherals or internal parts), model number (not furniture or board games), purchase date, and purchase price (not gifts or employer-owned items). `hb-needs-info` (this skill's directory) sets and clears the tag and field across the inventory and is safe to re-run; `--dry-run` shows what would change. Filter by the tag in Homebox, or `hb-api GET '/entities?tags=<tag id>'`, to work through the follow-ups, then run the script again to clear the completed ones.
 
 A kit that combines individual products is recorded as those products, never as a single kit item: a starter kit of bulbs and a remote becomes the bulbs and the remote, each with its own quantity. The kit's price is divided evenly over its pieces and the `Part Of Kit` and `Kit Price Split` fields say so.
 
