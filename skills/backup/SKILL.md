@@ -7,6 +7,8 @@ description: Use whenever a task touches backups of the user's home systems — 
 
 The design and status of the user's home backup solution. It is built iteratively: each section says whether it records something **confirmed** on the live systems or something **planned**, and moves from planned to confirmed once it is set up and a restore has been tested. Keep new findings and decisions here as they happen.
 
+Open work is listed in `TODO.md` next to this file; an item leaves that list when it is done, and what it established moves into this file.
+
 **Related systems**: see the `home` skill for the topology map. `truenas` holds the pools and datasets being backed up, `homebox` records the physical hardware (the backup server, the drive enclosure and the disks), `home-assistant` and `paperless` hold data worth protecting, and `email` covers the mailbox that holds purchase history.
 
 ## Principles
