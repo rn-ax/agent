@@ -42,6 +42,7 @@ Current routes (virtual network `default`, id `094aa388-919f-4f8d-9836-2e67b73d6
 |---|---|---|
 | `192.168.1.142/32` | TrueNAS | TrueNAS LAN services |
 | `192.168.0.65/32` | Rutinerad Mac Mini (`7b47ae72-def3-4ccd-94a7-736f31f072b5`) | SSH to `rutinerad-mini` from the phone (Heeler/herdr) |
+| `192.168.0.150/32` | Server (`4ae5783d-bfc9-4f99-aef8-0ef0ec1f2956`) | SSH to the `server` Mac mini (`server.local`) from the phone; clients use the IP since mDNS names do not resolve over WARP |
 
 Adding a host:
 1. Create a remote-managed tunnel in the dashboard (Zero Trust → Networks → Tunnels → Create → Cloudflared) and run the install command it shows on the host (`sudo cloudflared service install <TOKEN>`). The Homebrew service (`brew services start cloudflared`) runs bare `cloudflared` with no token and exits immediately.
