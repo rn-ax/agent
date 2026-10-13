@@ -7,7 +7,7 @@ description: Use whenever the user asks for help with their Windmill instance �
 
 This is the accumulating knowledge base for the user's self-hosted Windmill instance. Fill in each section as it's actually confirmed; don't guess or leave stale placeholder content.
 
-**Related systems**: see the `home` skill for the full topology map and cross-system integration notes — in particular, Windmill is meant to be the automation layer sitting on top of `baserow`/`saltcorn` (both have plain REST APIs a flow can call) and is a candidate trigger/target for `home-assistant` automations too, though that link isn't built yet. Check `home`'s integration-threads section before assuming a Windmill task is self-contained. See the `cloudflare` skill for account-level facts (credential inventory, the Access service-token bypass mechanism in general, Workers/wrangler tooling, GitHub-Actions-secrets-on-Free-plan gotcha) — this file covers only what's specific to the Windmill instance itself.
+**Related systems**: see the `home` skill for the full topology map and cross-system integration notes — in particular, Windmill is a candidate trigger/target for `home-assistant` automations, though that link isn't built yet. Check `home`'s integration-threads section before assuming a Windmill task is self-contained. See the `cloudflare` skill for account-level facts (credential inventory, the Access service-token bypass mechanism in general, Workers/wrangler tooling, GitHub-Actions-secrets-on-Free-plan gotcha) — this file covers only what's specific to the Windmill instance itself.
 
 ## Instance
 
