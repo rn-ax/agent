@@ -150,3 +150,20 @@ Once the instance location and auth are known, standard ways to help:
 - **YAML automations/scripts**: Home Assistant config is YAML-first even when authored through the UI. If the user pastes an automation or asks to write one, standard HA YAML conventions apply (triggers/conditions/actions, `service:`/`action:` calls, entity IDs like `domain.object_id`).
 - **REST API**: `https://<instance>/api/...` with `Authorization: Bearer <long-lived token>` — useful for scripted stats-pulling or one-off queries outside of writing a full integration.
 - **Custom integrations vs. scripting from outside**: A real `custom_components/` integration (Python, installed into HA itself) is the way to add support for hardware HA doesn't already know about — configurable through HA's own UI, restart-safe, manageable like any other integration. Reach for HA's REST API from an external script instead only for a genuine one-off query, not for anything meant to run continuously.
+
+## Custom integrations (`ha-*` repos)
+
+Every custom integration the user runs lives in its own `rn-ax/ha-<name>` repo, cloned to `~/Projects/ha-<name>`. Original integrations (`ha-gym-tracker`, `ha-inteno-router`) and forks of external ones (`ha-healthchecksio`, `ha-homebox`) share one scaffold. The `github` skill holds the rules behind each item (fork scan, README callout, `_fork.py`, org conventions); this list is the checklist to walk when creating or forking one:
+
+- `.github/settings.yml` with `_extends: poppycock`, plus `name`, `description` and the repo's actual visibility.
+- `.github/workflows/ci.yml` calling `rn-ax/poppycock/.github/workflows/ha-integration-ci.yml@main` with `hacs_ignore: issues` (add `brands` only for a domain missing from `home-assistant/brands`) and `secrets: inherit`.
+- The repo on the `HOME_ASSISTANT_URL`/`HOME_ASSISTANT_TOKEN` org secret's repo list, so the deploy-to-HACS job has credentials.
+- `renovate.json` extending `github>rn-ax/poppycock`, a `mise.toml` pinning python, uv and ruff with `lint`/`format` tasks, and `.editorconfig` copied from `poppycock`.
+- `.github/CODEOWNERS` with `* @rn-ax/all-stars`, and push access for the `all-stars` team on the repo (an access change, so it needs the user's sign-off).
+- `manifest.json` `codeowners` set to `@rn-ax/all-stars`, and `documentation` pointing at the rn-ax repo. `issue_tracker` points at a repo with Issues disabled, so HA's "report an issue" link 404s; flag it to the user when creating the repo.
+- `hacs.json` pointing HACS at `main` with no `zip_release`.
+- Forks add the README `> [!IMPORTANT]` callout (reason, drop condition, change list), keep fork-specific logic in `_fork.py`, and carry a scheduled workflow that opens a "Sync upstream" PR (`ha-homebox/.github/workflows/upstream-sync.yml` is the template). Upstream pull requests the fork depends on are merged in as-is, with the manifest `version` left at upstream's value.
+
+Config flows for services that issue static API keys offer the key as the primary option. `ha-homebox` offers a menu of API key or email and password.
+
+Install on the instance with `hacs-install rn-ax/ha-<name> integration`, then restart core once for the new Python code (see the restart note under Instance). Add the integration through Settings → Devices & Services afterwards.
