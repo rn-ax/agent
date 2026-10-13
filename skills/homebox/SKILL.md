@@ -43,6 +43,7 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 - **Status and person tags** use the same style: `Ordered`, `Needs Info`, `Employer Owned`, and one tag per household member named after them.
 - **Attachments** use the type that matches the file (`manual`, `warranty`, `photo` or `attachment`); see "Documents worth attaching" for what to include.
 - **Description** is markdown and holds the one-line "what is this and what is it for".
+- **Records stand alone.** A record holds facts about the item: specs, purchase, serial, firmware, location and notes on its state. Skills, agents and tooling stay out of it. Knowledge about operating or integrating a device (pairing steps, device settings, entity names, how it behaves) lives in the skill for that system, and the skill points to the record by asset ID.
 
 ## Documents worth attaching
 
