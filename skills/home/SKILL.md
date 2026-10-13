@@ -18,7 +18,7 @@ This is the index for everything running across this user's home infrastructure.
 | NocoDB | Airtable-style data store | app on TrueNAS, `noco.rn.ax` | *(no dedicated skill yet)* |
 | Baserow | Airtable-style data store — hit paywalled features (unique constraint, row coloring) | app on TrueNAS, `baserow.rn.ax` / `truenas.lan:30163` (LAN, for API) | `baserow` |
 | Saltcorn | No-code app builder, genuinely no paid tier — chosen after NocoDB/Baserow both gated basic features | Custom App on TrueNAS, `truenas.lan:31399` (no public tunnel route yet) | `saltcorn` |
-| Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `truenas.lan:30149` (LAN only) | `homebox` |
+| Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `https://home.rn.ax` (Cloudflare Access), LAN `truenas.lan:30149` | `homebox` |
 | Fastmail | Personal email (`rn.ax`), calendar, contacts; read-only MCP token for agents | hosted, `api.fastmail.com/mcp` | `email` |
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
 | Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
@@ -28,7 +28,7 @@ This is the index for everything running across this user's home infrastructure.
 
 ## Devices and hardware live in Homebox
 
-Every device in the house — smart-home gear, servers, network equipment, peripherals, appliances — is recorded in Homebox (see the `homebox` skill), with exact model numbers, specs, connectivity and manuals. Any task that involves a physical device starts with a Homebox lookup (`hb-api GET '/entities?q=<term>'`), before web searches or questions to the user. Typical payoffs: which radios and ports a device has, what hardware a host carries (a Zigbee dongle on the Home Assistant Pi, say), and whether the user already owns something that solves the problem. The map above lists the software systems; Homebox is the source for the hardware under and around them.
+Every device in the house — smart-home gear, servers, network equipment, peripherals, appliances — is recorded in Homebox (see the `homebox` skill), with exact model numbers, specs, connectivity and manuals. Any task that involves a physical device starts with a Homebox lookup (`hb-api GET '/entities?q=<term>'`), before web searches or questions to the user. Typical payoffs: which radios and ports a device has, what hardware a host carries (a Zigbee dongle on the Home Assistant Pi, say), and whether the user already owns something that solves the problem. Every mention of a device in a reply or in a skill is a markdown link to its Homebox entry, `[Raspberry Pi 5 (8 GB)](https://home.rn.ax/item/<entity id>)`; the entity id comes from the lookup, and the asset id (`#000-041`) may follow the link as the short reference. The map above lists the software systems; Homebox is the source for the hardware under and around them.
 
 ## Topology notes that matter across systems
 

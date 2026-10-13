@@ -11,7 +11,7 @@ The user's home inventory: everything they own (loosely defined), with exact spe
 
 ## Instance
 
-Runs as the `homebox` app from TrueNAS's `community` catalog train. The LAN URL is `http://truenas.lan:30149`; there is no public Cloudflare route.
+Runs as the `homebox` app from TrueNAS's `community` catalog train. The browser URL is `https://home.rn.ax`, published through Cloudflare Access, and it is the base for every link to a Homebox resource (`https://home.rn.ax/item/<entity id>`, `/location/<id>`). The API wrappers talk to the LAN address `http://truenas.lan:30149`.
 
 API credentials live in the "Homebox" item in the "Agent" 1Password vault: `password` = API token, the **website** URL = base URL. The URL sits in the item's `urls` array rather than `fields`, so it needs `item get --format json | jq -r '.urls[0].href'`.
 
