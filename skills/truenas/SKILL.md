@@ -49,6 +49,8 @@ Any mount that's transient/regeneratable (cache, LSP cache, other data that's fi
 
 Ownership policy differs by tree. `Logs` mounts don't matter — chown/ACL them to whatever UID the container actually needs, no constraint. `Configuration` mounts matter because they need to be backed up: ideally still owned by `apps:apps`; when a container needs a different UID to function (e.g. Postgres needing `999:999`), grant `apps:apps` full access via POSIX ACL rather than leaving it inaccessible — the goal is that whatever eventually does the backup (running as `apps`) can always read everything under `Configuration`, regardless of which UID the container itself needs to own the data as. The `Configuration` dataset is recursively `chown`'d to `apps:apps` by default.
 
+The "Automatic Permissions" install-form checkbox only fixes ownership for mounts the app catalog explicitly declares (for Windmill, just the Postgres data mount, chowned to `999:999`). Check what UID each container in the compose actually runs as, and grant it access to every other mount before assuming a first failure is something else. A POSIX ACL keeps the `apps:apps` ownership convention intact (these ZFS mounts have `posixacl` enabled): `sudo setfacl -R -m u:<uid>:rwx -d -m u:<uid>:rwx <dir>`, where the `-d` default ACL makes new files and subdirs the container creates inherit the same grant.
+
 Uninstalling an app in the TrueNAS UI does not delete these datasets unless you explicitly choose to remove them — so datasets existing under `Configuration`/`Logs` for an app don't mean that app is currently installed; check `app.query` for actual state. A stateful child dataset (e.g. `postgres`) can retain real data from a prior install long after the app was removed, which can break a fresh reinstall pointed at the same path.
 
 ## Installing an app for the user
@@ -63,7 +65,7 @@ When asked to install a TrueNAS catalog app end-to-end (not just troubleshoot on
 6. **Build the `app.create` payload** matching the schema from step 2 exactly (group → variable nesting), push it to the box, and call `sudo midclt call app.create "$(cat file.json)"` — returns a job id, not a synchronous result.
 7. **Poll `core.get_jobs` for that job id** until it leaves `RUNNING`/`WAITING`, then check `sudo docker ps -a --filter "label=com.docker.compose.project=ix-<app>"` for real container health — `app.query`'s own state can read `RUNNING` while one container in the compose project is still crash-looping, so don't trust the app-level state alone as proof everything actually works.
 8. **For an app not in the catalog** (a "Custom App"), there's no schema/template to read — `app.create` instead takes `custom_app: true` plus `custom_compose_config_string` (raw YAML) or `custom_compose_config` (parsed object), with no `permissions` init container and no automatic UID/ownership help at all; own the mount ownership entirely yourself from dataset-creation time.
-9. **If it fails opaquely** (`[EFAULT] Failed 'up' action...`, no real detail in `/var/log/app_lifecycle.log`), reuse the live log-capture technique documented in `apps.md` rather than re-deriving it — it's already written up as a reusable recipe, not tied to one specific app.
+9. **If it fails opaquely** (`[EFAULT] Failed 'up' action...`, no real detail in `/var/log/app_lifecycle.log`), use the technique in "Diagnosing an opaque install failure" below.
 
 Two gotchas that apply to *any* custom app, not just one specific app:
 
@@ -74,6 +76,12 @@ Two gotchas that apply to *any* custom app, not just one specific app:
 
 Any password/key generated during an install gets written to a dated file on `~/Desktop` (e.g. `~/Desktop/<app>-credentials-<date>.txt`) so the user can pull it into their password manager — this is a standing instruction, not a one-off. Tell the user the file is there and that they should delete it once stored; don't delete it proactively, since that assumes they've already done so.
 
+### Diagnosing an opaque install failure
+
+The generic error in the UI and in `/var/log/app_lifecycle.log` gives no real detail: the log line for a failed install is one giant single line (embedded literal `\n`, not real newlines) containing the entire `docker pull` progress dump, and by the time you read it middleware has already torn the failed containers down, so `docker logs <name>` returns "No such container." To actually see what happened: watch `sudo docker events --filter "label=com.docker.compose.project=ix-<app>"` live during a retry, and the instant a `create` event fires for a container, start `sudo tail -F` on its on-disk log file directly — `/mnt/.ix-apps/docker/containers/<full-container-id>/<full-container-id>-json.log` (from `docker.config`'s `data-root`) — rather than trying `docker logs -f <id>`; the daemon uses the default `json-file` log driver (no journald), and the file survives just long enough after container removal for an already-attached `tail -F` to have read it, whereas attaching *after* the "die" event is reliably too late.
+
+(A `pkill -f <pattern>` run over SSH will kill its own SSH session if the invoking command line itself contains the literal pattern text — use a bracket trick like `pkill -f "[w]hatever"` to avoid self-matching.)
+
 ## Per-app notes
 
-App-specific configuration, quirks, and resolved incidents live in `apps.md` next to this file, one `##` section per app — read it when working on a specific app rather than expecting that detail here.
+App-specific configuration, quirks, and resolved incidents live in each app's own skill under a "TrueNAS deployment" section.
