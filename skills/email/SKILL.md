@@ -56,4 +56,17 @@ Available tools (all read-only):
 | `search_events`, `list_calendars` | Calendar events in an `after`/`before` range; calendar ids |
 | `search_notes`, `read_note` | Fastmail notes |
 
+## Searching for purchases
+
+`fm-api search_email` prints `{"results": [...], ...}`; each result carries `id`, `threadId`, `subject`, `receivedAt`, `from` (a list of `{email, name}`), `to`, `folder` and a `preview`. A one-line listing:
+
+```sh
+fm-api search_email '{"query":"esata","limit":10}' | jq -r '.results[] | "\(.receivedAt[0:10])\t\(.from[0].email)\t\(.subject)\t\(.id)"'
+```
+
+- Free-text terms match message bodies as well as subjects, so a product-category word ("raid", "esata", "enclosure") finds a shop receipt whose subject is only an order number. `read_email` on the hit shows the full product line with its article number, price and VAT.
+- The mailbox reaches back to 2008, and old shops (Datagubben, Dustin Home, Tradera, Blocket) leave receipts in Archive. Searching in both Swedish and English product terms covers them: `kabinett`, `hårddisk`, `kvitto`, `raid`.
+- Brand names in the query work when the brand appears in the receipt text; a query with no match returns an empty `results` list.
+- A model or article number printed on the device (for example on a rear label) matches the shop's `Art.nr` once the product category has found the right order.
+
 A token without write scope has no `send_email`, `draft_email` or event-editing tools; sending or changing anything needs a new token with write access, created in Fastmail under Settings → Privacy & Security → Integrations.
