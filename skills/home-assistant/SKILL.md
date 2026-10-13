@@ -39,6 +39,8 @@ The live instance is the source of truth for its configuration, so read it befor
 - **Files**: `ssh root@192.168.3.71`, config under `/config` (`configuration.yaml` plus its `!include` files, `custom_components/`, `zigbee.db` for the ZHA network, add-on data in `/addon_configs`).
 - **Hardware**: the Pi and what is plugged into it are Homebox entities ([Raspberry Pi 5 (8 GB)](https://home.rn.ax/item/58ca6f28-aec8-4f1f-b8bf-113f32f2c3cf)); look devices up there, see the `home` skill.
 
+ZHA diagnostics reachable from outside: `ws-call` accepts `zha/devices` (every device with `nwk`, `available`, `last_seen`, `lqi`, entities), `zha/devices/clusters` (endpoints and clusters, with `ieee`) and `zha/devices/permit` (opens the join window; `duration` in seconds, up to about 250). On the Pi, `ssh root@192.168.3.71 'ha core logs -n 3000'` returns the core log with ZHA debug lines (the default is only the last 100 lines); a device's pairing shows up there under its IEEE with the `cluster_config` bind and reporting results. A subscription to the `zha_event` event type shows the commands a device sends from client clusters, which is how buttons and detached switch inputs appear.
+
 New Zigbee devices pair through ZHA (Settings → Devices & Services → ZHA → Add device); for a device with multiple radio profiles, switch it to its Zigbee profile first.
 
 ## Router monitoring/control project
@@ -102,7 +104,7 @@ The Companion App's **"Perform Action"** Shortcuts action (call any HA service f
 
 ## Device & entity notes
 
-`references/devices.md` holds per-device knowledge that the config and entity list don't show on their own — behavioural quirks, what a misleadingly-named entity actually means, why a custom entity was built a certain way. Read the relevant section when a task touches a specific device, and add one when you set a device up (keep it to what's *not* already readable from Developer Tools). Covered so far: Traeger smoker.
+`references/devices.md` holds per-device knowledge that the config and entity list don't show on their own — behavioural quirks, what a misleadingly-named entity actually means, why a custom entity was built a certain way. Read the relevant section when a task touches a specific device, and add one when you set a device up (keep it to what's *not* already readable from Developer Tools). Covered so far: Traeger smoker, Shelly 2PM Gen4 (Zigbee).
 
 ## TrueNAS integration
 
