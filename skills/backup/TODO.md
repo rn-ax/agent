@@ -55,5 +55,4 @@ Work still open on the backup solution, grouped by theme. The design, principles
 
 ## Skill upkeep
 
-- [ ] Link the skill into `~/.claude/skills/backup` once the pull request is merged.
 - [ ] Move each planned section of `SKILL.md` to confirmed as it is set up and a restore is tested.
