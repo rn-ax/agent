@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Authenticated Paperless-ngx REST API wrapper, using this account's Paperless
+# API token and base URL (the "Paperless" item in the "Agent" 1Password vault;
+# see the `rn-config` skill for the item conventions this follows). Always uses
+# the item's first URL, the LAN address of the TrueNAS app, since the public
+# paper.rn.ax is Cloudflare Access-gated and a token call can't reach it.
+# Usage: pl-api <method> <path> [curl-args...]
+#   pl-api GET '/tags/?page_size=5'
+#   pl-api POST /tags/ -d '{"name": "reocr1", "matching_algorithm": 0}'
+#   pl-api POST /documents/bulk_edit/ -d '{"documents": [1, 2], "method": "modify_tags", "parameters": {"add_tags": [7], "remove_tags": []}}'
+#
+# <path> is relative to <base_url>/api and must start with /. Paperless 3
+# removed API versions below 9, so the Accept header pins version 9 (a bare
+# call is treated as an unsupported old version).
+set -euo pipefail
+
+method="${1:?Usage: pl-api <method> <path> [curl-args...]}"
+path="${2:?Usage: pl-api <method> <path> [curl-args...]}"
+shift 2
+
+item_json="$(~/tasks/op-service-account item get Paperless --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
+base_url="${base_url%/}"
+token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+
+curl -sS -X "$method" "${base_url}/api${path}" \
+	-H "Authorization: Token $token" \
+	-H "Accept: application/json; version=9" \
+	-H "Content-Type: application/json" \
+	"$@"
