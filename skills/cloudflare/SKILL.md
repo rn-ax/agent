@@ -52,6 +52,12 @@ Adding a host:
 
 Tunnel creation, route creation and Split Tunnel edits are dashboard steps: both the `~/.config/cloudflare/env` token and the Account API Token return `Authentication error` (code 10000) on `POST .../cfd_tunnel` and `POST .../teamnet/routes`, despite the "Cloudflare Tunnel Edit" scope listed above. Reads work: `GET .../cfd_tunnel`, `GET .../teamnet/routes` and `cf-api GET /accounts/<acct>/devices/policy/include` verify the result. The Split Tunnel list lives on the default device policy (`GET /accounts/<acct>/devices/policies` shows one profile).
 
+## Who may log in: email lists, not literal emails
+
+Identity-based Access rules reference **Zero Trust Lists of type EMAIL** (one per person or group: `Samuel`, `David`, `Madde`, `Barnen`), so a person's addresses are updated in the list and every policy using it follows. The account has no legacy Access Groups (`GET /access/groups` is empty); lists are under `GET /accounts/<acct>/gateway/lists` and are readable with the Account API Token (the `~/.config/cloudflare/env` token gets `Authentication error` on `access/groups`). Reusable Access policies are built on them, among them `Samuel` (allow: the Samuel list plus a service token), `Barnen` (allow: the Barnen list) and `Authorized` (allow: all four lists). Create new allow rules with an Include of type Emails list.
+
+Device enrollment is the Access application **Warp Login App** (`rutinerad.cloudflareaccess.com/warp`). It starts with only the non-identity `Contabo Runners` policy, so a person enrolling a phone or laptop gets `403 Forbidden` at `rutinerad.cloudflareaccess.com` until an Allow policy for their email list is added there (dashboard: Team & Resources → Devices → Management → Device enrollment).
+
 ## Workers & wrangler
 
 - Local `wrangler` binary: `brew install cloudflare-wrangler` (not the `wrangler` formula, which doesn't exist) — needed because this machine's shadowed `node`/`npm` resolution otherwise breaks modern `wrangler` (≥4.x requires Node ≥22). Auth via `CLOUDFLARE_API_TOKEN=<token> wrangler <command>`.
