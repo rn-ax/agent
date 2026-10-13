@@ -32,6 +32,32 @@ Several internal apps (`windmill.rn.ax` and others) sit behind Cloudflare Access
 
 To verify a bypass is actually live: `curl -H "CF-Access-Client-Id: ..." -H "CF-Access-Client-Secret: ..." <url>` and check for a real response vs. a 302 to `<subdomain>.cloudflareaccess.com`. Decoding the redirect's `meta` JWT param (base64url, second dot-segment) shows `service_token_status` — `false` means Access didn't recognize the credential as valid for that request, regardless of how correct the token looks in isolation.
 
+## WARP private-network access (reaching home hosts from phones and laptops)
+
+Zero Trust org `rutinerad` routes private IPs to hosts through Cloudflare Tunnels. A device enrolled in WARP reaches a host's private IP when two things are true: a **CIDR route** for that IP points at the host's tunnel, and the IP is in the **default WARP profile's Split Tunnel includes** (the profile is in Include mode, so only listed ranges go through WARP). Raw protocols such as SSH then work from native apps with no `cloudflared` on the client; a public hostname through Access serves browsers only.
+
+Current routes (virtual network `default`, id `094aa388-919f-4f8d-9836-2e67b73d6eb7`):
+
+| CIDR | Tunnel | Purpose |
+|---|---|---|
+| `192.168.1.142/32` | TrueNAS | TrueNAS LAN services |
+| `192.168.0.65/32` | Rutinerad Mac Mini (`7b47ae72-def3-4ccd-94a7-736f31f072b5`) | SSH to `rutinerad-mini` from the phone (Heeler/herdr) |
+| `192.168.0.150/32` | Server (`4ae5783d-bfc9-4f99-aef8-0ef0ec1f2956`) | SSH to the `server` Mac mini (`server.local`) from the phone; clients use the IP since mDNS names do not resolve over WARP |
+
+Adding a host:
+1. Create a remote-managed tunnel in the dashboard (Zero Trust → Networks → Tunnels → Create → Cloudflared) and run the install command it shows on the host (`sudo cloudflared service install <TOKEN>`). The Homebrew service (`brew services start cloudflared`) runs bare `cloudflared` with no token and exits immediately.
+2. In the tunnel's **Routes** tab choose **CIDR routes**, enter the host's `/32`, and set the virtual network to `default` explicitly. Published applications and Hostname routes serve other use cases.
+3. Add the same `/32` to the default WARP profile's Split Tunnels. In the newer Cloudflare One dashboard (`one.dash.cloudflare.com`): Team & Resources → Devices → Device profiles → Default → Split Tunnels → Manage → Add new → IP Address, then Save in the dialog and Save profile on the page.
+4. Give the host a DHCP reservation, since the route is pinned to its IP.
+
+Tunnel creation, route creation and Split Tunnel edits are dashboard steps: both the `~/.config/cloudflare/env` token and the Account API Token return `Authentication error` (code 10000) on `POST .../cfd_tunnel` and `POST .../teamnet/routes`, despite the "Cloudflare Tunnel Edit" scope listed above. Reads work: `GET .../cfd_tunnel`, `GET .../teamnet/routes` and `cf-api GET /accounts/<acct>/devices/policy/include` verify the result. The Split Tunnel list lives on the default device policy (`GET /accounts/<acct>/devices/policies` shows one profile).
+
+## Who may log in: email lists, not literal emails
+
+Identity-based Access rules reference **Zero Trust Lists of type EMAIL** (one per person or group: `Samuel`, `David`, `Madde`, `Barnen`), so a person's addresses are updated in the list and every policy using it follows. The account has no legacy Access Groups (`GET /access/groups` is empty); lists are under `GET /accounts/<acct>/gateway/lists` and are readable with the Account API Token (the `~/.config/cloudflare/env` token gets `Authentication error` on `access/groups`). Reusable Access policies are built on them, among them `Samuel` (allow: the Samuel list plus a service token), `Barnen` (allow: the Barnen list) and `Authorized` (allow: all four lists). Create new allow rules with an Include of type Emails list.
+
+Device enrollment is the Access application **Warp Login App** (`rutinerad.cloudflareaccess.com/warp`). It starts with only the non-identity `Contabo Runners` policy, so a person enrolling a phone or laptop gets `403 Forbidden` at `rutinerad.cloudflareaccess.com` until an Allow policy for their email list is added there (dashboard: Team & Resources → Devices → Management → Device enrollment). The `Samuel's devices` reusable policy (Allow, Include → Emails list → Samuel) is attached at precedence 2, and the iPhone enrolled through it on 2026-10-13. The iOS client is **Cloudflare One Agent** (the App Store's separate Zero Trust app; the consumer 1.1.1.1 app has no team login), enrolled with team name `rutinerad`. Enrolled devices are listed by `cf-api GET /accounts/<acct>/devices`.
+
 ## Workers & wrangler
 
 - Local `wrangler` binary: `brew install cloudflare-wrangler` (not the `wrangler` formula, which doesn't exist) — needed because this machine's shadowed `node`/`npm` resolution otherwise breaks modern `wrangler` (≥4.x requires Node ≥22). Auth via `CLOUDFLARE_API_TOKEN=<token> wrangler <command>`.
