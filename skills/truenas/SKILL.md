@@ -7,7 +7,7 @@ description: Use whenever the user asks for help with their TrueNAS server — t
 
 This is the accumulating knowledge base for the user's TrueNAS server. Fill in each section as it's actually confirmed; don't guess or leave stale placeholder content.
 
-**Related systems**: see the `home` skill for the full topology map and cross-system integration notes. TrueNAS is the physical host for most of the software stack described there — `windmill`, `baserow`, `saltcorn` each have their own skill for app-specific detail, but the install playbook and dataset conventions below apply to any app on this box, not just those three.
+**Related systems**: see the `home` skill for the full topology map and cross-system integration notes. The `backup` skill holds the backup design for this box's pools and datasets. TrueNAS is the physical host for most of the software stack described there — `windmill`, `baserow`, `saltcorn` each have their own skill for app-specific detail, but the install playbook and dataset conventions below apply to any app on this box, not just those three.
 
 ## Instance
 
