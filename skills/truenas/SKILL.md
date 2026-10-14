@@ -23,6 +23,14 @@ A TrueNAS API key is revocable and can get auto-revoked on "incorrect use" elsew
 
 Don't read or reuse the monocoque secret as a stand-in for the 1Password value elsewhere — update 1Password first, then push the new value out to each downstream copy that needs it. The one place the monocoque secret *is* the right thing to use as-is is monocoque's own CI.
 
+## Disks and pools
+
+The server has three kinds of disk, told apart by name:
+
+- **System disk** — an SSD holding TrueNAS itself (`boot-pool` in `zpool list`). It has no name of its own.
+- **`Storage`** — the one redundant pool (RAIDZ1 over four disks) and the only one of its kind. It holds everything important and is the pool that gets backed up.
+- **`Misc-<capacity><disk number>`** — one single-disk pool per disk with no redundancy, holding media that can be replaced. The leading digit(s) are the disk's capacity in TB and the last digit is its disk number, counting `Storage` as disk 1; the system disk is not numbered. So `Misc-102` is a 10 TB disk, the second disk, `Misc-63` a 6 TB disk, the third, and `Misc-204` a 20 TB disk, the fourth.
+
 ## Apps / Docker architecture
 
 TrueNAS SCALE's "Apps" feature is a `middlewared`-managed wrapper around a real Docker daemon. Key pieces, useful for troubleshooting rather than just clicking around the UI:

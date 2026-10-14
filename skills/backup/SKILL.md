@@ -26,6 +26,7 @@ TrueNAS (`truenas.lan`):
 
 - `Storage` pool: **RAIDZ1 over four 8 TB disks** (single-disk redundancy), about 29 TiB raw and 82% full. It holds the configuration, the data and the important media.
 - Three further pools (`Misc-63`, `Misc-102`, `Misc-204`), each a single disk with one `Movies` dataset. They hold the media the user accepts losing, so they have no redundancy and no backup by design.
+- The system disk (the boot SSD, `boot-pool`) has no backup. If it dies the TrueNAS install and its configuration go with it; see open decision 6.
 - Scrubs run on every pool and report no errors.
 - No periodic snapshot tasks and no replication tasks exist. The snapshots that are present come from the Apps system.
 - One Cloud Sync task pushes `Storage/Books` to Dropbox hourly in SYNC mode, which mirrors deletions to the remote copy. Its credentials live in TrueNAS and the cloud account.
@@ -68,6 +69,7 @@ A scheduled job on the Mac mini sends an encrypted, versioned copy of the irrepl
 3. Offsite provider and the upload speed available.
 4. Whether TrueNAS pushes to the Mac mini or the Mac mini pulls from TrueNAS.
 5. Snapshot schedule and retention on `Storage`.
+6. How to back up the TrueNAS system disk (the boot SSD) so a dead disk costs a reinstall and a config restore, not the configuration itself.
 
 ## Log
 
