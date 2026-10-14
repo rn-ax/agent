@@ -68,6 +68,7 @@ A scheduled job on the Mac mini sends an encrypted, versioned copy of the irrepl
 3. Offsite provider and the upload speed available.
 4. Whether TrueNAS pushes to the Mac mini or the Mac mini pulls from TrueNAS.
 5. Snapshot schedule and retention on `Storage`.
+6. How to back up the TrueNAS system disk (the boot SSD) so a dead disk costs a reinstall and a config restore, not the configuration itself.
 
 ## Log
 
