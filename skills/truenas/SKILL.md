@@ -27,7 +27,7 @@ Don't read or reuse the monocoque secret as a stand-in for the 1Password value e
 
 The server has three kinds of disk, told apart by name:
 
-- **System disk** — an SSD holding TrueNAS itself (`boot-pool` in `zpool list`). It has no name of its own. If it dies the TrueNAS install and its configuration go with it, and no backup of it exists yet; working out how to back it up is an open item in the `backup` skill.
+- **System disk** — an SSD holding TrueNAS itself (`boot-pool` in `zpool list`). It has no name of its own.
 - **`Storage`** — the one redundant pool (RAIDZ1 over four disks) and the only one of its kind. It holds everything important and is the pool that gets backed up.
 - **`Misc-<capacity><disk number>`** — one single-disk pool per disk with no redundancy, holding media that can be replaced. The leading digit(s) are the disk's capacity in TB and the last digit is its disk number, counting the system disk as 1 and `Storage` as 2. So `Misc-63` is a 6 TB disk, the third disk, and `Misc-204` is a 20 TB disk, the fourth.
 
