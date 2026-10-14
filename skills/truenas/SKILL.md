@@ -29,9 +29,7 @@ The server has three kinds of disk, told apart by name:
 
 - **System disk** — an SSD holding TrueNAS itself (`boot-pool` in `zpool list`). It has no name of its own.
 - **`Storage`** — the one redundant pool (RAIDZ1 over four disks) and the only one of its kind. It holds everything important and is the pool that gets backed up.
-- **`Misc-<capacity><disk number>`** — one single-disk pool per disk with no redundancy, holding media that can be replaced. The leading digit(s) are the disk's capacity in TB and the last digit is its disk number, counting the system disk as 1 and `Storage` as 2. So `Misc-63` is a 6 TB disk, the third disk, and `Misc-204` is a 20 TB disk, the fourth.
-
-`Misc-102` is a 10 TB disk by its size, but its trailing 2 collides with `Storage` being disk 2; ask the user how it was numbered before relying on the number for it.
+- **`Misc-<capacity><disk number>`** — one single-disk pool per disk with no redundancy, holding media that can be replaced. The leading digit(s) are the disk's capacity in TB and the last digit is its disk number, counting `Storage` as disk 1; the system disk is not numbered. So `Misc-102` is a 10 TB disk, the second disk, `Misc-63` a 6 TB disk, the third, and `Misc-204` a 20 TB disk, the fourth.
 
 ## Apps / Docker architecture
 
