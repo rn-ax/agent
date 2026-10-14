@@ -51,7 +51,7 @@ The document type **"Pyssel / Teckning"** is never scored (children's drawings u
 
 State is in `ocr-cache/` next to the script (gitignored, local to the machine): `verified.jsonl` (append-only, last record per id wins; `source` is `human` for `ok` and `auto` for documents that passed), `cursor.json` (`last_id`, `last_run`; documents above `last_id` count as new in the summary; Paperless ids only increase and are never reused, but a restore of old documents would sit below the cursor, hence `--rescan`), and `flagged.csv`. A verification is tied to a hash of the text it was made for, so a re-OCR'd document is scored again; `auto` entries are also invalidated when `HEURISTICS_VERSION` in the script is bumped. Every scan fetches all text because the known-word test compares a document with the whole library.
 
-Re-OCR itself is done in the Paperless UI (the **Reprocess** action, which creates `reprocess_document` tasks); the earlier attempt to tag documents `reocr1-3` was dropped in favour of this file-based queue, and those tags were deleted.
+Re-OCR itself is done in the Paperless UI (the **Reprocess** action, which creates `reprocess_document` tasks). The script never tags; on 2026-10-15 the user had the 579 flagged documents tagged `bad-ocr` once, by hand through the API, so they can be filtered in the UI. That tag is a snapshot, not kept in sync: remove it per document when it's fixed, and rerun `ocr-scan` for the current list. (An earlier three-tier `reocr1-3` tagging was dropped and those tags deleted.)
 
 ## Snapshots
 
