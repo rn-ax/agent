@@ -16,6 +16,7 @@ This is the index for everything running across this user's home infrastructure.
 | TrueNAS | Main server — hosts most of the apps below via Docker | `truenas.lan` / `192.168.1.142` | `truenas` |
 | Windmill | Automation/agent layer (scripts, flows, AI copilot) | app on TrueNAS, `windmill.rn.ax` (public, Access-gated) / `truenas.lan:30155` (LAN, for API) | `windmill` |
 | Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `https://home.rn.ax` (Cloudflare Access), LAN `truenas.lan:30149` | `homebox` |
+| Beszel | Monitoring: host and per-container CPU/memory/disk/network history for TrueNAS and both Contabo boxes | hub app on TrueNAS, `truenas.lan:30333` (LAN only); agents on TrueNAS and both Contabo boxes | `beszel` |
 | Backups | Backup design and status: TrueNAS data, Macs, the M1 Mac mini backup server with its drive enclosure, offsite copies | `server.lan` (planned target), TrueNAS `Storage` pool (source) | `backup` |
 | Shelly devices | Shelly relays and other Shelly gear (the office 2PM Gen4 on Zigbee through ZHA): pairing, profiles, firmware, wall-switch inputs | paired to Home Assistant, Wi-Fi on the IoT network | `shelly` |
 | Fastmail | Personal email (`rn.ax`), calendar, contacts; read-only MCP token for agents | hosted, `api.fastmail.com/mcp` | `email` |

@@ -63,4 +63,4 @@ As of 2026-09-27: ~85–106GB disk free and ~9GB RAM available on each box even 
 
 ## Related systems
 
-See the `home` skill for the full topology map. `rn-infra` is the IaC source of truth for these boxes. The `github` skill covers the stuck-org-runner incident and general org CI conventions. `truenas`/`windmill` cover the services these boxes now have a confirmed direct path to.
+See the `home` skill for the full topology map. `rn-infra` is the IaC source of truth for these boxes. The `github` skill covers the stuck-org-runner incident and general org CI conventions. `truenas`/`windmill` cover the services these boxes now have a confirmed direct path to. `beszel` covers the monitoring agent that runs on both boxes and reports to the hub on TrueNAS.
