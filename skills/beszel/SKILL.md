@@ -24,14 +24,16 @@ The `beszel` app on TrueNAS, installed from the community catalog (`beszel-hub`)
 
 ## Agents
 
-Every agent dials out to the hub over WebSocket, so no agent publishes a port and nothing listens on 45876. All agents share one **universal token** (Add System dialog in the hub; enable the permanent option so it does not expire) and the hub's public SSH key, which is the same for every agent and not a secret. Each agent sets `SYSTEM_NAME` so every host registers as its own system under a meaningful name; without it a universal-token agent registers under the machine hostname (`vmi…` on the Contabo boxes). `SYSTEM_NAME` applies only at first registration, so a rename of an already-registered system happens in the hub UI.
+Every agent dials out to the hub over WebSocket, so no agent publishes a port and nothing listens on 45876. All agents share one **universal token** (Add System dialog in the hub; enable the permanent option so it does not expire) and the hub's public SSH key, which is the same for every agent and not a secret. Each agent sets `SYSTEM_NAME` to a display name (`TrueNAS`, `Contabo 1`, `Contabo 2`) so every host registers as its own system under a readable name; without it a universal-token agent registers under the machine hostname (`vmi…` on the Contabo boxes). `SYSTEM_NAME` applies only at first registration, so a rename of an already-registered system happens in the hub UI.
+
+Env values in the rn-infra `.env` are single-quoted by the `app` role, so display names with spaces pass through intact.
 
 Common agent shape: `henrygd/beszel-agent`, `network_mode: host`, `/var/run/docker.sock` mounted read-only (that mount is what provides per-container stats), state in `/var/lib/beszel-agent`, environment `HUB_URL`, `KEY`, `TOKEN`, `SYSTEM_NAME`.
 
 | System | Deployed as | Token lives in |
 |---|---|---|
-| `truenas` | TrueNAS custom app `beszel-agent` (compose in the app config, `HUB_URL=http://192.168.1.142:30333`, state in `Storage/Logs/beszel/agent-data`) | the app's compose config on TrueNAS |
-| `contabo-1`, `contabo-2` | `apps/beszel-agent` in `~/Projects/rn-infra`, deployed by the generic `app` role (`mise run apps`), `HUB_URL=http://truenas.lan:30333` over the WARP private-network route | ansible-vault, `inventory/group_vars/app_hosts/vault.yml` (`beszel_agent_token`) |
+| `TrueNAS` | TrueNAS custom app `beszel-agent` (compose in the app config, `HUB_URL=http://192.168.1.142:30333`, state in `Storage/Logs/beszel/agent-data`) | the app's compose config on TrueNAS |
+| `Contabo 1`, `Contabo 2` | `apps/beszel-agent` in `~/Projects/rn-infra`, deployed by the generic `app` role (`mise run apps`), `HUB_URL=http://truenas.lan:30333` over the WARP private-network route | ansible-vault, `inventory/group_vars/app_hosts/vault.yml` (`beszel_agent_token`) |
 
 To add a host: another `beszel-agent` entry in rn-infra's `apps` list for a Contabo-style box, or a custom app on TrueNAS following the install playbook in the `truenas` skill (own the mount ownership yourself; a custom app gets no automatic permissions help).
 
