@@ -39,11 +39,13 @@ Notes:
 
 ## Findings on Mac compatibility
 
-The TerraMaster forum (forum.terra-master.com) sits behind a Cloudflare challenge that `WebFetch` and `shop-browse` cannot pass, so the threads themselves could not be read. The points below come from `WebSearch` result summaries of them and are unverified against the posts.
+The TerraMaster forum (forum.terra-master.com) sits behind a Cloudflare challenge that `WebFetch` and `shop-browse` cannot pass. The user pasted the main thread, "[Help] D4-320 sleep issue on Mac" (19–23 Sep 2025), and the findings come from it plus `WebSearch` summaries of other threads.
 
-- The D4-320 has no RAID of any kind built in; it presents four individual disks. Software RAID would only exist if set up on the Mac (Disk Utility or SoftRAID), which the user will not do, so forum reports from users who ran RAID on the Mac do not apply. Which mode each reporter used is unknown: one user's repeated drive failures were across a D5-300C (a hardware-RAID model) and a D4-320.
-- Disk sleep in JBOD mode is controlled by the host operating system. TerraMaster's FAQ lists the D4-320 among the models affected by slow access, disks sleeping for no apparent reason and disks failing to wake, and advises disabling disk sleep in macOS or Windows. One summarised thread describes sleep/wake cycling on M-series Macs, which TerraMaster attributes to power settings; the recommended fix is to stop macOS sleeping when the display is off.
-- A forum report says that since macOS 15.4 disks in a D4-320 on an M1 MacBook Pro do not mount after a reboot, or are ejected when the lid closes. The lid case does not apply to a Mac mini; the mount-after-reboot case does.
+- **The thread.** An M1 Mac user ran four Seagate IronWolf 8 TB disks as a macOS (Apple) software RAID 1 array in a TerraMaster D5-300C and then a D4-320, and saw five drive failures or degraded-array events in about a year. They believe the enclosure sleeps the disks against the Mac's power settings, which they could not change. TerraMaster support replied that the enclosure's sleep state depends on the Mac, noted "it seems you are using the built-in software RAID on your Mac", suggested trying without RAID, and later stopped investigating when the user declined. The reporter disputes the RAID explanation but gave no evidence beyond the same symptom on two enclosures. The user concludes the complaint is about macOS software RAID, not the enclosure, and will not use RAID.
+- **What that implies for single disks.** The D4-320 has no RAID of any kind built in. Disk sleep in that mode is controlled by the host operating system, so with independent disks the likely effect of sleep is a wake-up delay on first access, with no array to degrade. This is an inference from the thread, not something a source states.
+- **SMART.** The reporter's macOS `smartctl` returned "SMART Status: Not Supported" for all four disks through the D4-320, so disk health monitoring through the enclosure may need a different SMART pass-through setting; untested.
+- **Sleep fixes on offer.** TerraMaster's FAQ (forum topic t=3840) lists the D4-320 among models with slow access or disks failing to wake and advises disabling disk sleep in macOS; support also suggested a script that reads the volume at intervals to keep it active.
+- **macOS 15.4+.** A forum report says disks in a D4-320 on an M1 MacBook Pro do not mount after a reboot, or are ejected when the lid closes. The lid case does not apply to a Mac mini; the mount-after-reboot case does.
 - A short USB cable (or an active hub) is advised for small-form-factor Macs with weak USB signal.
 - No Mac-specific reviews were found for the ICY BOX IB-3740-C31.
 
@@ -57,5 +59,6 @@ Where to buy: Amazon.de is the cheapest and ships to Åland without VAT at check
 
 ## Open questions
 
+- Whether `smartctl` can read SMART data from disks in the D4-320 on macOS (the thread's reporter got "Not Supported"), since the backup design benefits from disk health checks.
 - Buy-box price and exact VAT/customs cost of the Amazon.de D4-320 for an Åland address.
 - Whether disks in the D4-320 mount reliably after a reboot on the Mac mini's current macOS and stay awake with disk sleep turned off (`pmset`); test with one disk before moving data, as the `backup` skill already requires for the Deltaco.
