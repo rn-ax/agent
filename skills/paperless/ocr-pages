@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 """Mechanical helpers for fixing a document's OCR text by reading its pages yourself.
 
-    ocr-pages prep ID [--dpi 130]        back up the current text, download the original PDF,
-                                         print every page's size, render an overview PNG per page
+    ocr-pages prep ID [--dpi 130] [--no-trim]
+                                         back up the current text, download the original PDF, print
+                                         every page's size, render an overview PNG per page (trimmed
+                                         to the content when it sits in a corner of the page)
     ocr-pages strips ID PAGE [--dpi 200] [--height 700]
                                          cut one page into full-width, overlapping strips for
                                          reading small or blurry text; prints the PNG paths
     ocr-pages crop ID PAGE X Y W H [--dpi 200]
                                          crop a region; X Y W H are PIXELS at --dpi (points * dpi / 72)
-    ocr-pages put ID TEXTFILE [--dry-run]
-                                         replace the document's content with the text in TEXTFILE
-                                         and verify it; the only command that writes to Paperless
+    ocr-pages put ID TEXTFILE [--dry-run] [--no-tags]
+                                         replace the document's content with the text in TEXTFILE,
+                                         verify it, then swap the tags: add claude-ocr, remove bad-ocr
+    ocr-pages done ID                    only the tag swap (for a document whose text is already fixed)
+    ocr-pages skip ID REASON             you could not fix it: leave bad-ocr on it and log why
+    ocr-pages next [--n 10] [--min-pages A] [--max-pages B]
+                                         documents still tagged bad-ocr and not skipped, fewest pages first
 
 View the PNGs with an image viewer (Claude: the Read tool), transcribe into TEXTFILE, then `put`.
 Page sizes can differ within one PDF, so `strips` reads each page's own size. Files live in
 $CLAUDE_JOB_DIR/tmp/paperless-ocr/ID (else the system temp dir); the first backup of a
 document is never overwritten, so it always holds the text from before your first change.
-Uses pl-api for all API access. Needs pdfinfo and pdftoppm (poppler).
+Skips are logged in $CLAUDE_JOB_DIR/tmp/paperless-ocr/skipped.jsonl so `next` doesn't offer
+them again. The tags are the record of what is done: claude-ocr and no bad-ocr. Uses pl-api for all API access. Needs pdfinfo and pdftoppm (poppler).
 """
 import argparse
 import glob
@@ -26,6 +33,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -37,6 +45,38 @@ def workdir(doc_id):
     d = base / "paperless-ocr" / str(doc_id)
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+DONE_TAG, FLAG_TAG = "claude-ocr", "bad-ocr"
+
+
+def state_dir():
+    base = Path(os.environ["CLAUDE_JOB_DIR"]) / "tmp" if os.environ.get("CLAUDE_JOB_DIR") else Path(tempfile.gettempdir())
+    d = base / "paperless-ocr"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def skipped_ids():
+    f = state_dir() / "skipped.jsonl"
+    return {json.loads(l)["id"] for l in f.read_text().splitlines() if l.strip()} if f.exists() else set()
+
+
+def tag_id(name):
+    found = json.loads(api("GET", "/tags/?" + urllib.parse.urlencode({"name__iexact": name})))["results"]
+    if not found:
+        sys.exit(f"no tag named {name!r} in Paperless")
+    return found[0]["id"]
+
+
+def swap_tags(doc_id):
+    done, flag = tag_id(DONE_TAG), tag_id(FLAG_TAG)
+    api("POST", "/documents/bulk_edit/", "-d", json.dumps({"documents": [doc_id], "method": "modify_tags",
+        "parameters": {"add_tags": [done], "remove_tags": [flag]}}))
+    tags = json.loads(api("GET", f"/documents/{doc_id}/?fields=tags"))["tags"]
+    if done not in tags or flag in tags:
+        sys.exit(f"tag swap on #{doc_id} did not stick: tags are {tags}")
+    print(f"#{doc_id}: tagged {DONE_TAG}, removed {FLAG_TAG}")
 
 
 def api(*args):
@@ -54,9 +94,32 @@ def page_sizes(pdf):
 def render(pdf, out_root, dpi, page, extra=()):
     for old in glob.glob(f"{out_root}*.png"):
         os.remove(old)
-    subprocess.run(["pdftoppm", "-r", str(dpi), "-png", "-f", str(page), "-l", str(page), *extra, str(pdf), str(out_root)],
+    subprocess.run(["pdftoppm", "-q", "-r", str(dpi), "-png", "-f", str(page), "-l", str(page), *extra, str(pdf), str(out_root)],
                    check=True)
     return sorted(glob.glob(f"{out_root}*.png"))
+
+
+def content_box(pdf, page, w_pt, h_pt, margin=18):
+    """Bounding box (points) of the non-white area, found on a 40 dpi greyscale render; None if the
+    content fills most of the page. Receipts and small notes sit in a corner of an A4 page, and
+    every image view costs by its pixel area, so reading the trimmed render is much cheaper."""
+    root = Path(tempfile.mkdtemp()) / "probe"
+    subprocess.run(["pdftoppm", "-q", "-r", "40", "-gray", "-f", str(page), "-l", str(page), str(pdf), str(root)], check=True)
+    data = Path(glob.glob(f"{root}*.pgm")[0]).read_bytes()
+    m = re.match(rb"P5\s+(\d+)\s+(\d+)\s+255\s", data)
+    w, h, px = int(m.group(1)), int(m.group(2)), data[m.end():]
+    xs, ys = [], []
+    for y in range(h):
+        row = px[y * w:(y + 1) * w]
+        dark = [x for x, v in enumerate(row) if v < 235]
+        if dark:
+            ys.append(y); xs += [dark[0], dark[-1]]
+    if not xs:
+        return None
+    k = 72 / 40
+    x0, x1 = max(0, min(xs) * k - margin), min(w_pt, (max(xs) + 1) * k + margin)
+    y0, y1 = max(0, min(ys) * k - margin), min(h_pt, (max(ys) + 1) * k + margin)
+    return None if (x1 - x0) * (y1 - y0) > 0.8 * w_pt * h_pt else (x0, y0, x1, y1)
 
 
 def cmd_prep(a):
@@ -74,12 +137,19 @@ def cmd_prep(a):
     pdf = d / "original.pdf"
     api("GET", f"/documents/{a.id}/download/?original=true", "-o", str(pdf))
     if meta.get("mime_type") != "application/pdf":
-        print(f"not a PDF: the original is saved at {pdf}; view it directly")
+        ext = {"image/jpeg": "jpg", "image/png": "png", "image/tiff": "tif", "text/plain": "txt"}.get(meta.get("mime_type"), "bin")
+        img = d / f"original.{ext}"
+        pdf.replace(img)
+        print(f"not a PDF ({meta.get('mime_type')}): the original is saved at {img}; view it directly")
         return
     sizes = page_sizes(pdf)
     for p, (w, h) in sizes.items():
-        paths = render(pdf, d / f"page{p}", a.dpi, p)
-        print(f"page {p}: {w:.0f} x {h:.0f} pt -> {paths[0] if paths else 'render failed'}")
+        box = None if a.no_trim else content_box(pdf, p, w, h)
+        extra = () if not box else ("-x", str(int(box[0] * a.dpi / 72)), "-y", str(int(box[1] * a.dpi / 72)),
+                                    "-W", str(int((box[2] - box[0]) * a.dpi / 72)), "-H", str(int((box[3] - box[1]) * a.dpi / 72)))
+        paths = render(pdf, d / f"page{p}", a.dpi, p, extra)
+        print(f"page {p}: {w:.0f} x {h:.0f} pt" + (f", trimmed to content ({box[2]-box[0]:.0f} x {box[3]-box[1]:.0f} pt)" if box else "")
+              + f" -> {paths[0] if paths else 'render failed'}")
     if len(set(sizes.values())) > 1:
         print("note: pages differ in size; use `strips` per page")
 
@@ -129,20 +199,53 @@ def cmd_put(a):
     now = json.loads(api("GET", f"/documents/{a.id}/")).get("content") or ""
     if now.strip() != text.strip():
         sys.exit("verification failed: stored content differs from what was sent")
-    print(f"written and verified ({len(now)} chars stored). Only `content` changed; the archive PDF is untouched.")
+    print(f"written and verified ({len(now)} chars stored). The archive PDF is untouched.")
+    if not a.no_tags:
+        swap_tags(a.id)
+
+
+def cmd_done(a):
+    swap_tags(a.id)
+
+
+def cmd_skip(a):
+    with open(state_dir() / "skipped.jsonl", "a") as f:
+        f.write(json.dumps({"id": a.id, "reason": a.reason}, ensure_ascii=False) + "\n")
+    print(f"#{a.id}: left tagged {FLAG_TAG}, reason logged")
+
+
+def cmd_next(a):
+    flag, skip, found, page = tag_id(FLAG_TAG), skipped_ids(), [], 1
+    while True:
+        qs = urllib.parse.urlencode({"tags__id__all": flag, "page_size": 100, "page": page, "fields": "id,title,page_count"})
+        r = json.loads(api("GET", f"/documents/?{qs}"))
+        found += [d for d in r["results"] if d["id"] not in skip and a.min_pages <= (d["page_count"] or 1) <= a.max_pages]
+        if not r.get("next"):
+            break
+        page += 1
+    found.sort(key=lambda d: ((d["page_count"] or 1), d["id"]))
+    print(f"{len(found)} documents still tagged {FLAG_TAG} (not skipped) in that page range")
+    for d in found[:a.n]:
+        print(f"{d['id']}\t{d['page_count']}p\t{d['title'][:70]}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("prep"); p.add_argument("id", type=int); p.add_argument("--dpi", type=int, default=130); p.set_defaults(f=cmd_prep)
+    p = sub.add_parser("prep"); p.add_argument("id", type=int); p.add_argument("--dpi", type=int, default=130)
+    p.add_argument("--no-trim", action="store_true"); p.set_defaults(f=cmd_prep)
     p = sub.add_parser("strips"); p.add_argument("id", type=int); p.add_argument("page", type=int)
     p.add_argument("--dpi", type=int, default=200); p.add_argument("--height", type=int, default=700); p.set_defaults(f=cmd_strips)
     p = sub.add_parser("crop"); p.add_argument("id", type=int); p.add_argument("page", type=int)
     for n in "xywh":
         p.add_argument(n, type=int)
     p.add_argument("--dpi", type=int, default=200); p.set_defaults(f=cmd_crop)
-    p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true"); p.set_defaults(f=cmd_put)
+    p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--no-tags", action="store_true"); p.set_defaults(f=cmd_put)
+    p = sub.add_parser("done"); p.add_argument("id", type=int); p.set_defaults(f=cmd_done)
+    p = sub.add_parser("skip"); p.add_argument("id", type=int); p.add_argument("reason"); p.set_defaults(f=cmd_skip)
+    p = sub.add_parser("next"); p.add_argument("--n", type=int, default=10)
+    p.add_argument("--min-pages", type=int, default=1); p.add_argument("--max-pages", type=int, default=10**6); p.set_defaults(f=cmd_next)
     a = ap.parse_args()
     a.f(a)
 
