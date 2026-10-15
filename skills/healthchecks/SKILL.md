@@ -13,6 +13,8 @@ This is the accumulating knowledge base for the user's Healthchecks.io setup. Fi
 
 Healthchecks.io is the external watchdog for all of the user's systems: it lives outside the home network and the Contabo boxes, so it keeps working when everything else is down. Each system pings its own check on a schedule, and a missed ping notifies the user's phone through Pushover so they can react. A check going down therefore means the system stopped pinging (or lost its path to the internet), and that notification is the user's first signal that something is wrong.
 
+**Coverage rule:** every individual system or component the user maintains that is expected to stay up has its own check — servers, apps, tunnels, the Home Assistant instance. Personal computers and other devices that are legitimately off or away are outside it. A new always-on system or component gets its check in the project matching where it runs, as part of setting it up.
+
 ## Credentials
 
 The "Healthchecks" item in the "Agent" 1Password vault holds one **section per Healthchecks.io project**: `Contabo`, `TrueNAS` and `Home`. Each section has:
