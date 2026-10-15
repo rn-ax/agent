@@ -15,3 +15,7 @@ The page calls `/fi/search/getSearchResults?text=<terms>` for its results. In `.
 Product links are `/fi/<slug>/p/<article-number>` (for example `/p/39-2692`), available from `--links /p/`. The search page links to well over a thousand URLs, so filter with `/p/`.
 
 Search is fuzzy: `akkulaturi` returns car-battery and power-tool chargers first, `paristolaturi` returns AA/AAA chargers.
+
+## Multi-buy discounts
+
+Clas Ohlson often runs a 15–20 % discount on all products when buying two. When the user wants two of an item, check whether such a campaign is running or likely soon, and weigh waiting for it against the current price. A product's own offer price (for example `-34%` on a tile) can already beat the multi-buy discount, so compare the two before advising to wait.
