@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Authenticated Beszel hub REST API wrapper, using this account's hub
+# superuser (the "Beszel" item in the "Agent" 1Password vault: `email` field
+# and `password`; see the `rn-config` skill for the item conventions this
+# follows). Signs in on every call, so no token is stored. Always uses the
+# item's first URL - the LAN address, since the public hostname sits behind
+# Cloudflare Access and a bearer-token call can't get through it.
+# Usage: bz-api <method> <path> [curl-args...]
+#   bz-api GET /collections/systems/records
+#   bz-api GET '/collections/network_monitors/records?perPage=50'
+#   bz-api POST /collections/network_monitors/records -d '{"system": "<id>", "target": "1.1.1.1", "protocol": "icmp", "interval": 60, "enabled": true}'
+#
+# <path> is relative to <base_url>/api and must start with /.
+set -euo pipefail
+
+method="${1:?Usage: bz-api <method> <path> [curl-args...]}"
+path="${2:?Usage: bz-api <method> <path> [curl-args...]}"
+shift 2
+
+item_json="$(~/tasks/op-service-account item get Beszel --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
+base_url="${base_url%/}"
+email="$(jq -r '.fields[] | select(.label=="email") | .value' <<<"$item_json")"
+password="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+
+token="$(jq -n --arg identity "$email" --arg password "$password" '{identity: $identity, password: $password}' |
+	curl -sS -X POST "${base_url}/api/collections/_superusers/auth-with-password" \
+		-H "Content-Type: application/json" -d @- | jq -er '.token')"
+
+curl -sS -X "$method" "${base_url}/api${path}" \
+	-H "Authorization: $token" \
+	-H "Content-Type: application/json" \
+	"$@"
