@@ -90,6 +90,12 @@ The generic error in the UI and in `/var/log/app_lifecycle.log` gives no real de
 
 (A `pkill -f <pattern>` run over SSH will kill its own SSH session if the invoking command line itself contains the literal pattern text — use a bracket trick like `pkill -f "[w]hatever"` to avoid self-matching.)
 
+## Downloads share
+
+`/mnt/Storage/Downloads` is the SMB share `Downloads` (mounted on the Mac at `/Volumes/Downloads`). Everything in it is owned by `apps:apps` (568:568), the user the *arr apps and download clients run as. Files the user creates or moves through the SMB mount (re-encodes, manual moves) land as the SMB user `samuel` (3000:100) with mode `660`, which leaves `apps` with "Permission denied" — Sonarr's Manual Import then lists nothing for that folder. Run `sudo chown -R apps:apps <path>` on the server after placing files by hand; `samuel` and `admin` already have access to anything `apps` owns, so no ACL is needed.
+
+The SMB mount on the Mac reports one mapped owner and mode for every file, so verify ownership on the server (`ssh truenas sudo ls -ln /mnt/Storage/Downloads/<path>`, or `sudo -u apps ls <path>` to test access directly).
+
 ## Per-app notes
 
 App-specific configuration, quirks, and resolved incidents live in each app's own skill under a "TrueNAS deployment" section.
