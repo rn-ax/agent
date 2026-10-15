@@ -1,6 +1,6 @@
 # Verkkokauppa.com
 
-Finnish electronics retailer. The storefront is a client-rendered single-page app, so all product data arrives through JSON APIs after the page loads.
+Finnish electronics retailer. Listed on [leverans.ax](https://leverans.ax/alla-foretag/9/) as 0 % VAT sales (see `aland.md`). The storefront is a client-rendered single-page app, so all product data arrives through JSON APIs after the page loads.
 
 ## Product price and stock: `verkkokauppa-product`
 
@@ -17,7 +17,7 @@ A product URL is `/fi/product/<pid>/<slug>`. The pid alone resolves (`/fi/produc
 
 ## Search needs a browser
 
-`https://www.verkkokauppa.com/fi/search?query=<terms>` renders results client-side and there is no unauthenticated search endpoint. Load it in headless Chromium (recipe in `SKILL.md`, `waitUntil: 'networkidle'` plus a 2 s wait) and read product links with `a[href*="/product/"]`: the anchor text is the product title and the href holds the pid. Result tiles contain no price, so collect the pids and pass them to `verkkokauppa-product`.
+`https://www.verkkokauppa.com/fi/search?query=<terms>` renders results client-side and there is no unauthenticated search endpoint. Load it with `shop-browse '<url>' --links /product/`: the link text is the product title and the href holds the pid. Result tiles contain no price, so collect the pids and pass them to `verkkokauppa-product`.
 
 Search is fuzzy and returns related products and accessories when the exact item no longer exists (a query for a discontinued GPU returns current-generation cards). Check that returned titles match the query before concluding the item is stocked.
 

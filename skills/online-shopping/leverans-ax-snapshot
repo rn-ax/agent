@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Snapshot of the leverans.ax directory of shops that ship to Åland without double VAT.
+
+Usage: leverans-ax-snapshot [--accept]
+
+Reads every page of https://leverans.ax/alla-foretag/ with shop-browse and prints one JSON
+object on stdout:
+  {source, fetchedAt, pages, knownChecked, new, removed, shops: [{name, category, label, vat, page}]}
+Progress goes to stderr.
+
+leverans-ax-known.txt (next to this script) records the shop names the user has been told
+about: a first line "# checked YYYY-MM-DD", then one name per line. `new` lists shops on
+leverans.ax that are not in it and `removed` lists names in it that have left the site.
+--accept rewrites the file from the current directory (run it after reporting new/removed).
+
+vat is a normalized label: tax-border-number, zero-vat, zero-vat-via-support, ioss,
+refund-via-support, delivers (VAT handling unconfirmed).
+"""
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+here = Path(__file__).resolve().parent
+base = "https://leverans.ax/alla-foretag/"
+start_marker = "ⓘ Denna sida innehåller reklamlänkar"
+end_markers = ("Visa fler", "Vanliga frågor", "Beställningar till Åland")
+
+
+def vat_kind(label):
+    l = label.lower()
+    if l.startswith("skattegräns"):
+        return "tax-border-number"
+    if l.startswith("återbetalning"):
+        return "refund-via-support"
+    if l.startswith("moms"):
+        if "ioss" in l:
+            return "ioss"
+        return "zero-vat-via-support" if "kundtjänst" in l else "zero-vat"
+    if l.startswith("levererar"):
+        return "delivers"
+    return None
+
+
+def page_entries(n):
+    url = base if n == 1 else f"{base}{n}/"
+    res = subprocess.run([str(here / "shop-browse"), url, "--text", "--wait", "3000"],
+                         capture_output=True, text=True, check=True)
+    lines = [l.strip() for l in json.loads(res.stdout)["text"].split("\n") if l.strip()]
+    if start_marker not in lines:
+        return []
+    lines = lines[lines.index(start_marker) + 1:]
+    end = next((i for i, l in enumerate(lines) if l.startswith(end_markers)), len(lines))
+    entries, cur = [], []
+    for l in lines[:end]:
+        if l == "Till Butik":
+            continue
+        cur.append(l)
+        kind = vat_kind(l)
+        if kind and len(cur) >= 2:
+            entries.append({"name": cur[0], "category": " / ".join(cur[1:-1]) or None,
+                            "label": l, "vat": kind, "page": n})
+            cur = []
+    return entries
+
+
+known_file = here / "leverans-ax-known.txt"
+known, known_checked = set(), None
+if known_file.exists():
+    for line in known_file.read_text().splitlines():
+        if line.startswith("# checked "):
+            known_checked = line[len("# checked "):].strip()
+        elif line.strip():
+            known.add(line.strip())
+
+shops, n = [], 1
+while True:
+    found = page_entries(n)
+    print(f"page {n}: {len(found)} shops", file=sys.stderr)
+    if not found:
+        break
+    shops += found
+    n += 1
+
+if not shops:
+    sys.exit("No entries parsed; the leverans.ax page layout may have changed")
+
+names = sorted({s["name"] for s in shops}, key=str.lower)
+snapshot = {
+    "source": base,
+    "fetchedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "pages": n - 1,
+    "knownChecked": known_checked,
+    "new": [x for x in names if x not in known],
+    "removed": sorted(known - set(names), key=str.lower),
+    "shops": shops,
+}
+if "--accept" in sys.argv[1:]:
+    known_file.write_text(f"# checked {snapshot['fetchedAt'][:10]}\n" + "\n".join(names) + "\n")
+print(json.dumps(snapshot, ensure_ascii=False))
