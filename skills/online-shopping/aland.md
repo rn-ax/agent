@@ -17,7 +17,13 @@ leverans.ax is a refreshable list of shops that sell to Åland, and the first pl
 
 Amazon is the one Amazon site that sells to Åland without VAT: amazon.de. The leverans.ax entry "Amazon" refers to it.
 
-`leverans-ax-snapshot` reads every page of the directory and prints `{source, fetchedAt, pages, shops: [{name, category, label, vat, page}]}` as JSON on stdout (progress on stderr). `label` is leverans.ax's wording and `vat` its normalized form: `tax-border-number`, `zero-vat`, `zero-vat-via-support`, `ioss`, `refund-via-support`, `delivers`. Run it to refresh the list of shops, and state the `fetchedAt` date when quoting a shop's status.
+`leverans-ax-snapshot` reads every page of the directory and prints `{source, fetchedAt, pages, knownChecked, new, removed, shops: [{name, category, label, vat, page}]}` as JSON on stdout (progress on stderr). `label` is leverans.ax's wording and `vat` its normalized form: `tax-border-number`, `zero-vat`, `zero-vat-via-support`, `ioss`, `refund-via-support`, `delivers`.
+
+`leverans-ax-known.txt` records the shops the user has been told about (first line `# checked <date>`, then one name per line). `new` and `removed` in the script's output are the differences against it.
+
+When recommending where to buy, and `knownChecked` in the file's header is more than a month old, run `leverans-ax-snapshot`, tell the user which shops are `new` or `removed`, then run it again with `--accept` to record them and commit the updated file. State the `fetchedAt` date when quoting a shop's status.
+
+Shops the user buys from have a note under `sites/` with what the store is and its leverans.ax label; shops without one are only in the directory. Create a `sites/<shop>.md` when the user starts considering a shop.
 
 ## Reading the directory live
 

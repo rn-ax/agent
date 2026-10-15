@@ -15,6 +15,8 @@ How to read live price, stock and catalogue data from the shops this user buys f
 | IKEA (Finland) | `sites/ikea.md` | `shop-browse` search page |
 | Amazon.de | `sites/amazon-de.md` | `shop-browse` search page |
 
+Other shops the user considers have a note under `sites/` too (`head -3 sites/*.md` shows what each store is).
+
 ## Åland
 
 The user lives in Åland, outside the EU VAT area, so every recommendation of where to buy states the shop's status for Åland delivery. `aland.md` holds the rules, the [Info Norden customs page](https://www.norden.org/en/info-norden/customs-regulations-aland), the [leverans.ax](https://leverans.ax/) directory of shops that ship to Åland without double VAT, and how to read and refresh the directory with `leverans-ax-snapshot`. Prefer shops that sell to Åland, and treat the directory as a starting point: it is incomplete and sometimes wrong.
