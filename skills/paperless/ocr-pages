@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Mechanical helpers for fixing a document's OCR text by reading its pages yourself.
+
+    ocr-pages prep ID [--dpi 130]        back up the current text, download the original PDF,
+                                         print every page's size, render an overview PNG per page
+    ocr-pages strips ID PAGE [--dpi 200] [--height 700]
+                                         cut one page into full-width, overlapping strips for
+                                         reading small or blurry text; prints the PNG paths
+    ocr-pages crop ID PAGE X Y W H [--dpi 200]
+                                         crop a region; X Y W H are PIXELS at --dpi (points * dpi / 72)
+    ocr-pages put ID TEXTFILE [--dry-run]
+                                         replace the document's content with the text in TEXTFILE
+                                         and verify it; the only command that writes to Paperless
+
+View the PNGs with an image viewer (Claude: the Read tool), transcribe into TEXTFILE, then `put`.
+Page sizes can differ within one PDF, so `strips` reads each page's own size. Files live in
+$CLAUDE_JOB_DIR/tmp/paperless-ocr/ID (else the system temp dir); the first backup of a
+document is never overwritten, so it always holds the text from before your first change.
+Uses pl-api for all API access. Needs pdfinfo and pdftoppm (poppler).
+"""
+import argparse
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PL_API = str(HERE / "pl-api")
+
+
+def workdir(doc_id):
+    base = Path(os.environ["CLAUDE_JOB_DIR"]) / "tmp" if os.environ.get("CLAUDE_JOB_DIR") else Path(tempfile.gettempdir())
+    d = base / "paperless-ocr" / str(doc_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def api(*args):
+    r = subprocess.run([PL_API, *args], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f"pl-api {' '.join(args[:2])}: {r.stderr.strip()[:300]}")
+    return r.stdout
+
+
+def page_sizes(pdf):
+    out = subprocess.run(["pdfinfo", "-f", "1", "-l", "9999", str(pdf)], capture_output=True, text=True).stdout
+    return {int(n): (float(w), float(h)) for n, w, h in re.findall(r"Page\s+(\d+) size:\s+([\d.]+) x ([\d.]+) pts", out)}
+
+
+def render(pdf, out_root, dpi, page, extra=()):
+    for old in glob.glob(f"{out_root}*.png"):
+        os.remove(old)
+    subprocess.run(["pdftoppm", "-r", str(dpi), "-png", "-f", str(page), "-l", str(page), *extra, str(pdf), str(out_root)],
+                   check=True)
+    return sorted(glob.glob(f"{out_root}*.png"))
+
+
+def cmd_prep(a):
+    d = workdir(a.id)
+    backup = d / "backup.json"
+    if backup.exists():
+        print(f"backup already exists, keeping it: {backup}")
+    else:
+        backup.write_text(api("GET", f"/documents/{a.id}/"))
+        backup.chmod(0o600)
+        print(f"backed up current text: {backup}")
+    meta = json.loads(backup.read_text())
+    print(f"#{a.id} {meta.get('title')!r} | {meta.get('page_count')} pages | {meta.get('mime_type')} | "
+          f"{len(meta.get('content') or '')} chars of existing text")
+    pdf = d / "original.pdf"
+    api("GET", f"/documents/{a.id}/download/?original=true", "-o", str(pdf))
+    if meta.get("mime_type") != "application/pdf":
+        print(f"not a PDF: the original is saved at {pdf}; view it directly")
+        return
+    sizes = page_sizes(pdf)
+    for p, (w, h) in sizes.items():
+        paths = render(pdf, d / f"page{p}", a.dpi, p)
+        print(f"page {p}: {w:.0f} x {h:.0f} pt -> {paths[0] if paths else 'render failed'}")
+    if len(set(sizes.values())) > 1:
+        print("note: pages differ in size; use `strips` per page")
+
+
+def cmd_strips(a):
+    d = workdir(a.id)
+    pdf = d / "original.pdf"
+    if not pdf.exists():
+        sys.exit(f"run `ocr-pages prep {a.id}` first")
+    w_pt, h_pt = page_sizes(pdf)[a.page]
+    w_px, h_px = int(w_pt * a.dpi / 72), int(h_pt * a.dpi / 72)
+    step, y, n = a.height - 60, 0, 0
+    while y < h_px:
+        n += 1
+        paths = render(pdf, d / f"strip{a.page}_{n}", a.dpi, a.page, ("-x", "0", "-y", str(y), "-W", str(w_px), "-H", str(min(a.height, h_px - y))))
+        print(paths[0])
+        y += step
+    print(f"{n} strips, page {a.page} is {w_px} x {h_px} px at {a.dpi} dpi")
+
+
+def cmd_crop(a):
+    d = workdir(a.id)
+    pdf = d / "original.pdf"
+    if not pdf.exists():
+        sys.exit(f"run `ocr-pages prep {a.id}` first")
+    paths = render(pdf, d / f"crop{a.page}_{a.x}_{a.y}", a.dpi, a.page, ("-x", str(a.x), "-y", str(a.y), "-W", str(a.w), "-H", str(a.h)))
+    print(paths[0])
+
+
+def cmd_put(a):
+    d = workdir(a.id)
+    text = Path(a.textfile).read_text()
+    if not text.strip():
+        sys.exit("refusing to write empty text")
+    backup = d / "backup.json"
+    if not backup.exists():
+        backup.write_text(api("GET", f"/documents/{a.id}/"))
+        backup.chmod(0o600)
+    old = len(json.loads(backup.read_text()).get("content") or "")
+    print(f"#{a.id}: backup holds {old} chars, new text is {len(text)} chars")
+    if a.dry_run:
+        print("dry run: nothing written")
+        return
+    payload = d / "patch.json"
+    payload.write_text(json.dumps({"content": text}, ensure_ascii=False))
+    api("PATCH", f"/documents/{a.id}/", "-d", f"@{payload}")
+    now = json.loads(api("GET", f"/documents/{a.id}/")).get("content") or ""
+    if now.strip() != text.strip():
+        sys.exit("verification failed: stored content differs from what was sent")
+    print(f"written and verified ({len(now)} chars stored). Only `content` changed; the archive PDF is untouched.")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("prep"); p.add_argument("id", type=int); p.add_argument("--dpi", type=int, default=130); p.set_defaults(f=cmd_prep)
+    p = sub.add_parser("strips"); p.add_argument("id", type=int); p.add_argument("page", type=int)
+    p.add_argument("--dpi", type=int, default=200); p.add_argument("--height", type=int, default=700); p.set_defaults(f=cmd_strips)
+    p = sub.add_parser("crop"); p.add_argument("id", type=int); p.add_argument("page", type=int)
+    for n in "xywh":
+        p.add_argument(n, type=int)
+    p.add_argument("--dpi", type=int, default=200); p.set_defaults(f=cmd_crop)
+    p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true"); p.set_defaults(f=cmd_put)
+    a = ap.parse_args()
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()
