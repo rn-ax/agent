@@ -38,6 +38,10 @@ Notes:
 - Clas Ohlson (tax-border number, no customs step) lists the Advanced drills as bare tools: battery and charger sold separately.
 - Heavy drilling drains small batteries quickly. Clas Ohlson sells a PBA 18V 6,0 Ah battery at 99 €; Multitronic lists a PBA 18V 4,0 Ah at 49,90 €.
 
+## Side handle
+
+Both Advanced 18V-80 tools ship with an auxiliary side handle ("Zusatzhandgriff"), listed as a separate item in the Amazon.de contents next to the removable 13 mm metal chuck, magnet cap and bit. A `WebSearch` summary of retailer listings describes the handle as removable; no Bosch manual was read, so removability is likely but unconfirmed. Clas Ohlson's product text does not mention the handle.
+
 ## Recommendation (given to the user)
 
 1. Bosch AdvancedImpact 18V-80: the heavy-duty pick (82 Nm, brushless); worth it over the AdvancedDrill only if holes over 10 mm in masonry are needed, since the existing Universal Impact already hammer-drills up to 10 mm. Cheapest at Amazon.de, about 83–103 € before Åland customs VAT, against 159 € at Clas Ohlson.
