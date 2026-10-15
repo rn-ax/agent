@@ -1,6 +1,6 @@
 # Clas Ohlson (Finland)
 
-Not listed on [leverans.ax](https://leverans.ax/) (see `aland.md`).
+Listed on [leverans.ax](https://leverans.ax/alla-foretag/2/) with a tax-border number (see `aland.md`).
 
 Plain `curl` of any clasohlson.com URL, the search JSON endpoint included, receives a "Client Challenge" page; a real browser passes it. Use `shop-browse`.
 

@@ -1,6 +1,6 @@
 # Amazon.de
 
-Not listed on [leverans.ax](https://leverans.ax/) (see `aland.md`); delivery to Åland and its VAT handling are confirmed at checkout with an Åland address.
+Listed on [leverans.ax](https://leverans.ax/alla-foretag/) as "Amazon" with 0 % VAT sales (see `aland.md`); the entry names no country domain, so confirm at checkout with an Åland address that amazon.de ships there and shows no VAT.
 
 ## Search
 

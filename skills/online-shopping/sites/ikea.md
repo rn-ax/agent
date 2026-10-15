@@ -1,6 +1,6 @@
 # IKEA (Finland)
 
-Not listed on [leverans.ax](https://leverans.ax/) (see `aland.md`).
+Listed on [leverans.ax](https://leverans.ax/alla-foretag/4/) with a tax-border number (see `aland.md`).
 
 ## Search
 

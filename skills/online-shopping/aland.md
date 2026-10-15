@@ -13,13 +13,16 @@ Sources the user keeps current:
 
 ## Using the directory
 
-`https://leverans.ax/alla-foretag/` lists every entry and `https://leverans.ax/<category>/` filters by category (`hemelektronik`, `hem-hushall`, `bygg-renovering`, …). The page renders client-side; read it with `shop-browse <url> --text`. The site has no API or data file.
+`https://leverans.ax/alla-foretag/` lists every entry alphabetically, 15 per page, at `/alla-foretag/<n>/` (page 1 has no number; the list ends at page 9). `https://leverans.ax/<category>/` filters by category (`hemelektronik`, `hem-hushall`, `bygg-renovering`, …). The pages render client-side; read each with `shop-browse <url> --text` and take the entries between the line `ⓘ Denna sida innehåller reklamlänkar` and the `Visa fler företag` button, where each entry is a name, an optional category line and a label line. The site has no API or data file, and the homepage and category pages show only a sample, so search all nine pages before concluding a shop is missing.
 
-A shop's absence from the directory means its Åland VAT handling is unconfirmed. It does not mean the shop refuses Åland deliveries, so say "not listed on leverans.ax" and point to the shop's own delivery terms or customer service.
+Before saying a shop is not listed, check every page. A shop missing from all pages has unconfirmed Åland VAT handling; say "not listed on leverans.ax" and point to the shop's own delivery terms or customer service.
 
 ## Status of shops with a site file
 
 | Shop | leverans.ax (read 2026-10-15) |
 |---|---|
 | Multitronic | Skattegränsnummer: no extra VAT or customs |
-| Verkkokauppa.com, Clas Ohlson, IKEA, Amazon.de | not listed |
+| Clas Ohlson | Skattegränsnummer: no extra VAT or customs |
+| IKEA | Skattegränsnummer: no extra VAT or customs |
+| Verkkokauppa.com | Momsfri försäljning: 0 % VAT at checkout, VAT paid at Åland customs |
+| Amazon | Momsfri försäljning: 0 % VAT at checkout, VAT paid at Åland customs (the entry names Amazon without a country domain) |

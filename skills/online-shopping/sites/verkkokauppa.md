@@ -1,6 +1,6 @@
 # Verkkokauppa.com
 
-Finnish electronics retailer. The storefront is a client-rendered single-page app, so all product data arrives through JSON APIs after the page loads.
+Finnish electronics retailer. Listed on [leverans.ax](https://leverans.ax/alla-foretag/9/) as 0 % VAT sales (see `aland.md`). The storefront is a client-rendered single-page app, so all product data arrives through JSON APIs after the page loads.
 
 ## Product price and stock: `verkkokauppa-product`
 
