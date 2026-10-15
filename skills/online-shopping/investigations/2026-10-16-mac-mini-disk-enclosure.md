@@ -39,7 +39,11 @@ Notes:
 
 ## Findings on Mac compatibility
 
-- TerraMaster's own forum has reports from M-series Mac users of D4-320 drives sleeping and waking repeatedly because the enclosure's sleep settings do not follow macOS; TerraMaster's advice is to stop macOS sleeping when the display is off and to check SMART Load Cycle Count. Another user reported repeated drive failures within a year across a D5-300C and a D4-320.
+The TerraMaster forum (forum.terra-master.com) sits behind a Cloudflare challenge that `WebFetch` and `shop-browse` cannot pass, so the threads themselves could not be read. The points below come from `WebSearch` result summaries of them and are unverified against the posts.
+
+- The D4-320 has no RAID function: it presents four individual disks, so reports involving RAID (hardware or macOS software RAID) do not apply to it when used as JBOD, which is how it is meant to be used here. Whether any particular thread was about RAID is unknown; one user's repeated drive failures were across a D5-300C (a hardware-RAID model) and a D4-320.
+- Disk sleep in JBOD mode is controlled by the host operating system. TerraMaster's FAQ lists the D4-320 among the models affected by slow access, disks sleeping for no apparent reason and disks failing to wake, and advises disabling disk sleep in macOS or Windows. One summarised thread describes sleep/wake cycling on M-series Macs, which TerraMaster attributes to power settings; the recommended fix is to stop macOS sleeping when the display is off.
+- A forum report says that since macOS 15.4 disks in a D4-320 on an M1 MacBook Pro do not mount after a reboot, or are ejected when the lid closes. The lid case does not apply to a Mac mini; the mount-after-reboot case does.
 - A short USB cable (or an active hub) is advised for small-form-factor Macs with weak USB signal.
 - No Mac-specific reviews were found for the ICY BOX IB-3740-C31.
 
@@ -54,4 +58,4 @@ Where to buy: Amazon.de is the cheapest and ships to Åland without VAT at check
 ## Open questions
 
 - Buy-box price and exact VAT/customs cost of the Amazon.de D4-320 for an Åland address.
-- Whether the D4-320's sleep cycling is avoidable on the Mac mini with `pmset` settings (disk sleep off); test with one disk before moving data, as the `backup` skill already requires for the Deltaco.
+- Whether disks in the D4-320 mount reliably after a reboot on the Mac mini's current macOS and stay awake with disk sleep turned off (`pmset`); test with one disk before moving data, as the `backup` skill already requires for the Deltaco.
