@@ -4,7 +4,7 @@ Investigated 2026-10-16. Prices are EUR as shown to a consumer on that date.
 
 ## Request and requirements
 
-"Another cordless Bosch Power for All drill." The user already owns a cordless Bosch 18V screwdriver (Clas Ohlson set 41-2914, 199,90 € incl. Finnish VAT, bought with a battery) and a range of 18V Power for All tools recorded in Homebox (trim router, circular saw, jigsaw, glue gun, worklight, hedge and grass trimmers, lawn mower). Decisions from the user:
+"Another cordless Bosch Power for All drill." The user already owns a Bosch Universal Impact 18 V (older model; Homebox calls it a "cordless screwdriver", from the Clas Ohlson set 41-2914, 199,90 € incl. Finnish VAT, bought with a battery). Its stats, from the seller text the user pasted: 24 Nm / 34 Nm torque in two gears, 0–440 / 0–1450 rpm, up to 21 750 blows per minute, 10 mm quick chuck, 20 clutch steps, 1,3 kg with battery; drills 30 mm in wood, 10 mm in steel and 10 mm in masonry or brick, screws up to 8 mm. It is a light hammer drill, so the new tool is for heavier work and not for added hammer capability. The user also owns a range of 18V Power for All tools recorded in Homebox (trim router, circular saw, jigsaw, glue gun, worklight, hedge and grass trimmers, lawn mower). Decisions from the user:
 
 - Bare tool (no battery or charger); the existing Power for All batteries are used.
 - The new drill is the heavier-duty one; the existing tool stays for lighter jobs.
@@ -40,12 +40,12 @@ Notes:
 
 ## Recommendation (given to the user)
 
-1. Bosch AdvancedImpact 18V-80: the heavy-duty pick (hammer mode for masonry, 82 Nm, brushless). Cheapest at Amazon.de, about 83–103 € before Åland customs VAT, against 159 € at Clas Ohlson.
-2. Bosch AdvancedDrill 18V-80: the same platform without hammer mode (78 Nm); 139 € at Clas Ohlson, Amazon.de price to be confirmed.
+1. Bosch AdvancedImpact 18V-80: the heavy-duty pick (82 Nm, brushless); worth it over the AdvancedDrill only if holes over 10 mm in masonry are needed, since the existing Universal Impact already hammer-drills up to 10 mm. Cheapest at Amazon.de, about 83–103 € before Åland customs VAT, against 159 € at Clas Ohlson.
+2. Bosch AdvancedDrill 18V-80: the same platform without hammer mode (78 Nm), for heavy drilling and screwing in wood and metal; with the existing hammer-capable tool kept for light masonry this is the better value. 139 € at Clas Ohlson, Amazon.de price to be confirmed.
 3. Bosch UniversalImpact 18V-60 or UniversalDrill 18V-60: lower torque but brushless and much cheaper bare (62–68 € at Amazon.de, 81–83 € at Verkkokauppa).
 
 ## Open questions
 
-- Whether the user needs the hammer mode (masonry): decides between the Impact and Drill variants.
+- Whether holes over 10 mm in masonry are needed (the existing tool covers up to 10 mm): decides between the Impact and Drill variants. For repeated or large masonry holes an SDS rotary hammer is the better tool than either.
 - Capacity of the existing Power for All batteries; a 4,0 Ah or larger battery suits heavy-duty use.
 - The bare-tool Amazon.de price of each listing at checkout, including Åland customs VAT.
