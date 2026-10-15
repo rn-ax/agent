@@ -17,6 +17,8 @@ How to read live price, stock and catalogue data from the shops this user buys f
 
 Other shops the user considers have a note under `sites/` too (`head -3 sites/*.md` shows what each store is).
 
+For product research, `reviews.md` lists the review sources the user trusts (Wirecutter first) and whether each can be read.
+
 ## Åland
 
 The user lives in Åland, outside the EU VAT area, so every recommendation of where to buy states the shop's status for Åland delivery. `aland.md` holds the rules, the [Info Norden customs page](https://www.norden.org/en/info-norden/customs-regulations-aland), the [leverans.ax](https://leverans.ax/) directory of shops that ship to Åland without double VAT, and how to read and refresh the directory with `leverans-ax-snapshot`. Prefer shops that sell to Åland, and treat the directory as a starting point: it is incomplete and sometimes wrong.
@@ -39,6 +41,10 @@ The user lives in Åland, outside the EU VAT area, so every recommendation of wh
 - `--wait <ms>` adds time after network idle for late requests (default 2000).
 
 Playwright and Chromium install into `~/.cache/online-shopping` on first use (one run at a time; a parallel first run races the install). Progress goes to stderr, so `2>/dev/null` keeps stdout clean for `jq`. Searches for several shops can run in parallel afterwards.
+
+## Investigations
+
+A request to find the right product for a need (as opposed to one price or stock lookup) is an investigation. Check `investigations/` for earlier work on the same product before starting. Keep a markdown file `investigations/<date>-<slug>.md` for each investigation and write it during the work, not afterwards: the request and requirements, the sources used and the ones that could not be read, the candidates with shop, price, date and Åland status, the findings, the recommendation given and the open questions. If the requirements are not clear enough to narrow the candidates, ask the user first.
 
 ## Reporting results
 
