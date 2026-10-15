@@ -58,8 +58,12 @@ The TerraMaster forum (forum.terra-master.com) sits behind a Cloudflare challeng
 
 Where to buy: Amazon.de is the cheapest and ships to Åland without VAT at checkout, with customs clearance on the Åland side (see `aland.md`); Multitronic costs more but needs no customs handling.
 
+## Outcome
+
+Ordered on 2026-10-15 from Amazon.de: the TerraMaster D4-320 (diskless) at 188,99 € per the order line, in one order with the Bosch drill (see `2026-10-16-bosch-power-for-all-drill.md`). Estimated arrival 21 November 2026. The order total was 223,36 € for both items, which equals the two line prices (265,79 €) divided by 1,19: Amazon.de removed the 19 % German VAT at checkout for the Åland address.
+
 ## Open questions
 
 - Whether `smartctl` can read SMART data from disks in the D4-320 on macOS (the thread's reporter got "Not Supported"), since the backup design benefits from disk health checks.
-- Buy-box price and exact VAT/customs cost of the Amazon.de D4-320 for an Åland address.
+- The VAT and fees Åland customs charge when the Amazon.de parcel arrives (not yet charged).
 - Whether disks in the D4-320 mount reliably after a reboot on the Mac mini's current macOS and stay awake with disk sleep turned off (`pmset`); test with one disk before moving data, as the `backup` skill already requires for the Deltaco.

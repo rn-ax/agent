@@ -48,8 +48,12 @@ Both Advanced 18V-80 tools ship with an auxiliary side handle ("Zusatzhandgriff"
 2. Bosch AdvancedDrill 18V-80: the same platform without hammer mode (78 Nm), for heavy drilling and screwing in wood and metal; with the existing hammer-capable tool kept for light masonry this is the better value. 139 € at Clas Ohlson, Amazon.de price to be confirmed.
 3. Bosch UniversalImpact 18V-60 or UniversalDrill 18V-60: lower torque but brushless and much cheaper bare (62–68 € at Amazon.de, 81–83 € at Verkkokauppa).
 
+## Outcome
+
+Ordered on 2026-10-15 from Amazon.de: the Bosch AdvancedDrill 18V-80 QuickSnap (78 Nm, 13 mm metal chuck, magnet cap, without battery) at 76,80 € per the order line, together with the TerraMaster D4-320. That is below the 139 € Clas Ohlson price. German VAT was removed at checkout (the order total is the line sum divided by 1,19), so the drill cost about 64,54 € before Åland customs. Estimated arrival 21 November 2026.
+
 ## Open questions
 
 - Whether holes over 10 mm in masonry are needed (the existing tool covers up to 10 mm): decides between the Impact and Drill variants. For repeated or large masonry holes an SDS rotary hammer is the better tool than either.
 - Capacity of the existing Power for All batteries; a 4,0 Ah or larger battery suits heavy-duty use.
-- The bare-tool Amazon.de price of each listing at checkout, including Åland customs VAT.
+- The VAT and fees Åland customs charge when the Amazon.de parcel arrives (not yet charged).
