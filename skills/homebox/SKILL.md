@@ -37,7 +37,8 @@ Homebox's model: locations nest (room → shelf → box) and hold items; items c
 
 - **Locations** are physical places. A new account is seeded with default rooms (Attic, Basement, Bathroom, Bedroom, Garage, Kitchen, Living Room, Office); items go into these or into shelves/boxes nested under them.
 - **Item names** read as `Product (year, variant)` — recognisable in a list, e.g. `Mac mini (2023, M2 Pro)`.
-- **Built-in fields first**: `manufacturer`, `modelNumber`, `serialNumber`, `purchaseDate`/`purchasePrice`/`purchaseFrom`, `warrantyExpires`/`warrantyDetails`, `lifetimeWarranty`, `notes`. A fact that has a built-in field stays out of custom fields.
+- **Built-in fields first**: `manufacturer`, `modelNumber`, `serialNumber`, `purchaseDate`/`purchasePrice`/`purchaseFrom`, `warrantyExpires`/`warrantyDetails`, `lifetimeWarranty`, `notes`.
+- **Purchase price is the price including VAT that the user bears.** For a tax-free purchase delivered to Åland (Amazon.de, for example) the user pays Finnish VAT at Åland customs, so `purchasePrice` is the shop's charge plus 25.5 % VAT, marked as an estimate in the `VAT` field until the customs decision arrives. The shop's own price goes in `Purchase Price (Original)`. A fact that has a built-in field stays out of custom fields.
 - **Custom fields** carry the remaining specs. Names are Title Case and reused across items — check `GET /entities/fields` for names already in use before inventing one. Values carry their unit (`16 GB unified`). The API accepts `text`, `number`, `boolean` and `time` types; use `text` for specs so the unit stays attached.
 - **Links** go in a text custom field as markdown, `[Label](https://…)`, which Homebox renders as a clickable button.
 - **Child items** model parts that have their own serial or warranty — a server's disks are children of the server item.
