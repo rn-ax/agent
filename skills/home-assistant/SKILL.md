@@ -23,7 +23,7 @@ Being on a separate, security-isolated network matters for anything that needs t
 
 **SSH/root access — confirmed working 2026-08-22.** `ssh root@192.168.3.71` using the default key (`~/.ssh/id_ed25519`) — found via a long-abandoned `~/Projects/hass-config/.vscode/sftp.json` (an old VSCode SFTP remote-edit config pointing at `homeassistant.local:/config`, username `root`). That hostname no longer resolves (see mDNS note above), but the same host answers at `192.168.3.71` with an identical host key — added a fresh known_hosts entry for the IP rather than relying on the stale hostname. Config root is `/config`, and `/config/custom_components/` is exactly where a new integration's code goes to be picked up by HA.
 
-**HACS is already installed** (`/config/custom_components/hacs`), and other custom integrations already present: `aarlo`, `grocy`, `healthchecksio` (matches monocoque apps' `healthcheck_id` pattern), `spook`, and — notably — `truenas` (worth checking what it already surfaces before assuming nothing covers TrueNAS-side monitoring).
+**HACS is already installed** (`/config/custom_components/hacs`), and other custom integrations already present: `aarlo`, `grocy`, `healthchecksio` (matches monocoque apps' `healthcheck_id` pattern) (credentials and failure modes in the `healthchecks` skill), `spook`, and — notably — `truenas` (worth checking what it already surfaces before assuming nothing covers TrueNAS-side monitoring).
 
 **Scripts in this skill directory** (`~/.claude/skills/home-assistant/`) — read each script's own header comment for details, not duplicated here:
 - `hacs-install <owner/repo> <category>` — installs a custom repository through HACS.
