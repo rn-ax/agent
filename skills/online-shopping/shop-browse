@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Headless Chromium for client-rendered shop pages. Prints one JSON object on stdout.
+# Usage: shop-browse <url> [--links <href-substring>] [--json] [--text] [--wait <ms>]
+#   shop-browse 'https://www.verkkokauppa.com/fi/search?query=laturi' --links /product/
+#   shop-browse 'https://www.clasohlson.com/fi/search?text=laturi' --json
+#
+# Output: {url, title, links?, json?, text?}
+#   --links <substr>  anchors whose href contains <substr>: [{text, href}], tracking fragments dropped
+#   --json            JSON responses the page loaded: [{status, url}] (the shop's own API endpoints)
+#   --text            body innerText, for reading prices off a rendered page
+#   --wait <ms>       extra wait after network idle for late XHRs (default 2000)
+# Without a flag, only url and title are printed.
+#
+# Playwright and its Chromium live in ~/.cache/online-shopping, installed on first use.
+set -euo pipefail
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/online-shopping"
+
+if [ ! -d "$cache/node_modules/playwright" ]; then
+	mkdir -p "$cache"
+	echo "Installing Playwright into $cache (first run)..." >&2
+	(cd "$cache" && npm init -y >/dev/null && npm i playwright >&2 && npx playwright install chromium >&2)
+fi
+
+NODE_PATH="$cache/node_modules" exec node "$dir/shop-browse.mjs" "$@"
