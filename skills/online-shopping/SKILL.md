@@ -42,6 +42,10 @@ The user lives in Åland, outside the EU VAT area, so every recommendation of wh
 
 Playwright and Chromium install into `~/.cache/online-shopping` on first use (one run at a time; a parallel first run races the install). Progress goes to stderr, so `2>/dev/null` keeps stdout clean for `jq`. Searches for several shops can run in parallel afterwards.
 
+## Investigations
+
+A request to find the right product for a need (as opposed to one price or stock lookup) is an investigation. Check `investigations/` for earlier work on the same product before starting. Keep a markdown file `investigations/<date>-<slug>.md` for each investigation and write it during the work, not afterwards: the request and requirements, the sources used and the ones that could not be read, the candidates with shop, price, date and Åland status, the findings, the recommendation given and the open questions. If the requirements are not clear enough to narrow the candidates, ask the user first.
+
 ## Reporting results
 
 State the date the data was read, since price and stock change within days. Quote prices in the shop's own currency with VAT as shown to consumers, and say when an item is sold out, because a listed price on a sold-out item is not a price the user can pay.
