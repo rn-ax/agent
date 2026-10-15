@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Snapshot of the leverans.ax directory of shops that ship to Åland without double VAT.
 
-Usage: leverans-ax-snapshot [output.json]
+Usage: leverans-ax-snapshot
 
-Reads every page of https://leverans.ax/alla-foretag/ with shop-browse and writes
-{source, fetchedAt, shops: [{name, category, label, vat, page}]} to the output file
-(default: leverans-ax.json next to this script). Prints {file, fetchedAt, count} on stdout.
+Reads every page of https://leverans.ax/alla-foretag/ with shop-browse and prints one JSON
+object on stdout: {source, fetchedAt, pages, shops: [{name, category, label, vat, page}]}.
+Progress goes to stderr. The stored copy lives in references/leverans-ax.md.
 
 vat is a normalized label: tax-border-number, zero-vat, zero-vat-via-support, ioss,
 refund-via-support, delivers (VAT handling unconfirmed).
@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 here = Path(__file__).resolve().parent
-out_file = Path(sys.argv[1]) if len(sys.argv) > 1 else here / "leverans-ax.json"
 base = "https://leverans.ax/alla-foretag/"
 start_marker = "ⓘ Denna sida innehåller reklamlänkar"
 end_markers = ("Visa fler", "Vanliga frågor", "Beställningar till Åland")
@@ -63,6 +62,7 @@ def page_entries(n):
 shops, n = [], 1
 while True:
     found = page_entries(n)
+    print(f"page {n}: {len(found)} shops", file=sys.stderr)
     if not found:
         break
     shops += found
@@ -77,5 +77,4 @@ snapshot = {
     "pages": n - 1,
     "shops": shops,
 }
-out_file.write_text(json.dumps(snapshot, ensure_ascii=False, indent=1) + "\n")
-print(json.dumps({"file": str(out_file), "fetchedAt": snapshot["fetchedAt"], "count": len(shops)}))
+print(json.dumps(snapshot, ensure_ascii=False))

@@ -11,18 +11,13 @@ Sources the user keeps current:
   - **Levererar till Åland** — ships to Åland; the VAT handling needs confirming with the shop.
   - **Via kontakt med kundtjänst** — the shop removes or refunds the VAT after customer service is contacted.
 
-## Snapshot
+## Using leverans.ax
 
-`leverans-ax.json` (this skill's directory) is a committed snapshot of the whole directory: `{source, fetchedAt, pages, shops: [{name, category, label, vat, page}]}`. `label` is the leverans.ax wording and `vat` its normalized form: `tax-border-number`, `zero-vat`, `zero-vat-via-support`, `ioss`, `refund-via-support`, `delivers`.
+leverans.ax is a refreshable list of shops that sell to Åland, and the first place to look when choosing where to buy. It is not comprehensive (the user adds shops that are missing) and not fully accurate: it lists AliExpress as customs-cleared with IOSS, which no longer works, so treat AliExpress as a shop that does not deliver to Åland VAT-free. A shop's label is a starting point to confirm at checkout.
 
-```
-jq -r '.shops[] | select(.name | test("ikea|amazon"; "i")) | [.name, .vat] | @tsv' leverans-ax.json
-jq '.fetchedAt' leverans-ax.json
-```
+Amazon is the one Amazon site that sells to Åland without VAT: amazon.de. The leverans.ax entry "Amazon" refers to it.
 
-State the snapshot's `fetchedAt` date when quoting a shop's status. Refresh it with `leverans-ax-snapshot` (reads every page of the directory and rewrites the file; prints `{file, fetchedAt, count}`) when the snapshot is more than a few months old, when a shop is missing from it, or when the user says a listing changed. Commit the refreshed file.
-
-A shop missing from the snapshot has unconfirmed Åland VAT handling; say "not listed on leverans.ax" and point to the shop's own delivery terms or customer service.
+`leverans-ax-snapshot` reads every page of the directory and prints `{source, fetchedAt, pages, shops: [{name, category, label, vat, page}]}` as JSON on stdout (progress on stderr). `label` is leverans.ax's wording and `vat` its normalized form: `tax-border-number`, `zero-vat`, `zero-vat-via-support`, `ioss`, `refund-via-support`, `delivers`. Run it to refresh the list of shops, and state the `fetchedAt` date when quoting a shop's status.
 
 ## Reading the directory live
 

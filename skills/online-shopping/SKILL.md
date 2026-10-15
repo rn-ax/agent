@@ -17,7 +17,7 @@ How to read live price, stock and catalogue data from the shops this user buys f
 
 ## Åland
 
-The user lives in Åland, outside the EU VAT area, so every recommendation of where to buy states the shop's status for Åland delivery. `aland.md` holds the rules, the [Info Norden customs page](https://www.norden.org/en/info-norden/customs-regulations-aland), the [leverans.ax](https://leverans.ax/) directory of shops that ship to Åland without double VAT, and how to query and refresh `leverans-ax.json`, the committed snapshot of that directory. Look a shop up in the snapshot before recommending it, including shops without a site file.
+The user lives in Åland, outside the EU VAT area, so every recommendation of where to buy states the shop's status for Åland delivery. `aland.md` holds the rules, the [Info Norden customs page](https://www.norden.org/en/info-norden/customs-regulations-aland), the [leverans.ax](https://leverans.ax/) directory of shops that ship to Åland without double VAT, and how to read and refresh the directory with `leverans-ax-snapshot`. Prefer shops that sell to Åland, and treat the directory as a starting point: it is incomplete and sometimes wrong.
 
 ## Reading a shop, cheapest method first
 
