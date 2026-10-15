@@ -15,10 +15,10 @@ Host-level and per-container CPU, memory, disk and network history for TrueNAS a
 
 ## Hub
 
-The `beszel` app on TrueNAS, installed from the community catalog (`beszel-hub`), reachable on the LAN at `http://truenas.lan:30333`. It has no Cloudflare Tunnel or Access entry.
+The `beszel` app on TrueNAS, installed from the community catalog (`beszel-hub`), reachable on the LAN at `http://truenas.lan:30333` and publicly at `https://bzl.rn.ax`, which sits behind Cloudflare Access (an unauthenticated request gets a 302 to the Access login). Agents and scripted API calls use the LAN address.
 
 - Data lives in `Storage/Configuration/beszel/data` (config tree: system definitions, users and alerts matter), owned by `apps:apps`; the container runs as UID 568.
-- The first account created in the web UI becomes the admin. Login credentials are the user's own; the agent holds none, and no hub API credential exists for agent sessions.
+- The first account created in the web UI becomes the admin. The user's own login stays with the user; agent sessions use the dedicated API superuser described under "API access".
 - The catalog entry is the hub only. Agents are always deployed separately.
 - Keep the hub and agent image versions in step (both `0.21.0` at install time).
 
@@ -37,6 +37,12 @@ Common agent shape: `henrygd/beszel-agent`, `network_mode: host`, `/var/run/dock
 
 To add a host: another `beszel-agent` entry in rn-infra's `apps` list for a Contabo-style box, or a custom app on TrueNAS following the install playbook in the `truenas` skill (own the mount ownership yourself; a custom app gets no automatic permissions help).
 
+## API access
+
+Use `bz-api <method> <path>` (this skill's own directory) for ad-hoc hub API calls, e.g. `bz-api GET /collections/systems/records` or `bz-api GET '/collections/network_monitors/records?perPage=50'`. It reads the "Beszel" item in the "Agent" 1Password vault (`email` and `password` fields, LAN URL first), signs in as the hub superuser `agent@beszel.local` on every call and keeps no token. The path is relative to `<base_url>/api`.
+
+That superuser was created with `sudo docker exec ix-beszel-beszel-1 /beszel superuser create <email> <password> --dir /beszel_data` on TrueNAS; rotate or remove it with the same binary's `superuser update` / `delete`, and update the 1Password item to match.
+
 ## GPU stats (TrueNAS)
 
 The GTX 1650 is reported through NVML. The TrueNAS agent uses the NVIDIA image variant and attaches the GPU with a compose device reservation (`deploy.resources.reservations.devices`: `driver: nvidia`, `count: all`, `capabilities: [gpu]`) plus `NVIDIA_DRIVER_CAPABILITIES=utility`; the container runtime then injects `libnvidia-ml.so.1`, `nvidia-smi` and the device nodes. The slim image has no shell; inspect it from the host through `/proc/<pid>/root`. Contabo boxes carry no GPU and use the standard image.
@@ -45,7 +51,7 @@ The GTX 1650 is reported through NVML. The TrueNAS agent uses the NVIDIA image v
 
 Network monitors are probes that each agent runs from its own host: `icmp`, `tcp` (target plus port), `http` (HTTPS monitors also track certificate expiry) and `dns` (optional DNS server to query). They appear under Network Monitors in the hub and can be compared across systems. They are records in the hub's database, created in the web UI or through the hub's authenticated API; `config.yml` defines systems only, so monitors have no file-based definition. ICMP works from the host-network agent container without extra capabilities.
 
-Monitors are managed through a dedicated hub superuser, `agent@beszel.local`, created with `sudo docker exec ix-beszel-beszel-1 /beszel superuser create <email> <password> --dir /beszel_data` on TrueNAS. Its credentials were written to a dated file on the user's Desktop for their password manager (the Agent 1Password vault is read-only to agents, so nothing is stored there). Authenticate against `POST /api/collections/_superusers/auth-with-password`; `GET /api/collections/network_monitors` returns the live field list, and `POST /api/collections/network_monitors/records` takes `system` (record id from `/api/collections/systems/records`), `target`, `protocol`, `interval` (seconds), `enabled`, plus `port` for TCP and `server` for DNS. Probe results (`res`, `resAvg1h`, `loss1h`) are in microseconds.
+Monitors are managed through the hub API with `bz-api` (see "API access"): `GET /collections/network_monitors` returns the live field list, and `POST /collections/network_monitors/records` takes `system` (record id from `/collections/systems/records`), `target`, `protocol`, `interval` (seconds), `enabled`, plus `port` for TCP and `server` for DNS. Probe results (`res`, `resAvg1h`, `loss1h`) are in microseconds.
 
 Reachability shapes which monitors make sense, and each was tested from the real host before it was created:
 - TrueNAS sits directly on the Inteno router's `192.168.1.x` network, so it reaches `192.168.1.1`; the Synology router (`192.168.0.1`) is behind the Inteno and unreachable from there.
