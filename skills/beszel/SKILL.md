@@ -32,12 +32,21 @@ Common agent shape: `henrygd/beszel-agent`, `network_mode: host`, `/var/run/dock
 
 | System | Deployed as | Token lives in |
 |---|---|---|
-| `TrueNAS` | TrueNAS custom app `beszel-agent` (compose in the app config, `HUB_URL=http://192.168.1.142:30333`, state in `Storage/Logs/beszel/agent-data`) | the app's compose config on TrueNAS |
+| `TrueNAS` | TrueNAS custom app `beszel-agent` on the `henrygd/beszel-agent-nvidia:<version>-slim` image (compose in the app config, `HUB_URL=http://192.168.1.142:30333`, state in `Storage/Logs/beszel/agent-data`) | the app's compose config on TrueNAS |
 | `Contabo 1`, `Contabo 2` | `apps/beszel-agent` in `~/Projects/rn-infra`, deployed by the generic `app` role (`mise run apps`), `HUB_URL=http://truenas.lan:30333` over the WARP private-network route | ansible-vault, `inventory/group_vars/app_hosts/vault.yml` (`beszel_agent_token`) |
 
 To add a host: another `beszel-agent` entry in rn-infra's `apps` list for a Contabo-style box, or a custom app on TrueNAS following the install playbook in the `truenas` skill (own the mount ownership yourself; a custom app gets no automatic permissions help).
 
+## GPU stats (TrueNAS)
+
+The GTX 1650 is reported through NVML. The TrueNAS agent uses the NVIDIA image variant and attaches the GPU with a compose device reservation (`deploy.resources.reservations.devices`: `driver: nvidia`, `count: all`, `capabilities: [gpu]`) plus `NVIDIA_DRIVER_CAPABILITIES=utility`; the container runtime then injects `libnvidia-ml.so.1`, `nvidia-smi` and the device nodes. The slim image has no shell; inspect it from the host through `/proc/<pid>/root`. Contabo boxes carry no GPU and use the standard image.
+
+## Network monitors
+
+Network monitors are probes that each agent runs from its own host: `icmp`, `tcp` (target plus port), `http` (HTTPS monitors also track certificate expiry) and `dns` (optional DNS server to query). They appear under Network Monitors in the hub and can be compared across systems. They are records in the hub's database, created in the web UI or through the hub's authenticated API; `config.yml` defines systems only, so monitors have no file-based definition. ICMP works from the host-network agent container without extra capabilities.
+
+Monitors worth having, because they answer "is this host's network healthy": from TrueNAS, ICMP to the routers (`192.168.1.1`, `192.168.0.1`) and to `1.1.1.1`, plus a DNS lookup; from each Contabo box, ICMP to `192.168.1.142` (exercises the WARP private route), TCP to `truenas.lan:30333` (the hub itself) and ICMP to `1.1.1.1`.
+
 ## Open items
 
 - The TrueNAS agent logs `Using most active device for root I/O … device=sdd`. If the disk graph tracks the wrong drive, set the agent's `FILESYSTEM` option.
-- GPU stats for the GTX 1650 need Beszel's NVIDIA agent variant plus the nvidia runtime in the app; the current agent reports no GPU data.
