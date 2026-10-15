@@ -4,7 +4,7 @@ Amazon.de is the Amazon site that sells to Åland without VAT (leverans.ax lists
 
 ## Ordering to Åland
 
-An order placed on 2026-10-15 for delivery to Åland showed each line at its price including 19 % German VAT, and an order total equal to the line sum divided by 1,19, so Amazon.de removes the German VAT at checkout. Finnish VAT is then paid at Åland customs (see `aland.md`). The delivery estimate for in-stock tools and electronics was about five weeks (21 November for an order on 15 October), so Amazon.de suits planned purchases and not urgent ones. Order-confirmation emails come from `bestellbestaetigung@amazon.de` to the user's `amazon@rn.ax` address.
+Amazon.de listings show prices including 19 % German VAT. An order placed on 2026-10-15 for delivery to Åland came out VAT-free at checkout: the confirmation email's order total was the sum of its line prices divided by 1,19 (the line prices equal the listings' VAT-inclusive prices). Finnish VAT is then paid at Åland customs (see `aland.md`), so the price to compare with Finnish shops is the VAT-free charge multiplied by 1,255. The delivery estimate for in-stock tools and electronics was about five weeks (21 November for an order on 15 October), so Amazon.de suits planned purchases and not urgent ones. Order-confirmation emails come from `bestellbestaetigung@amazon.de` to the user's `amazon@rn.ax` address.
 
 ## Search
 

@@ -60,7 +60,7 @@ Where to buy: Amazon.de is the cheapest and ships to Åland without VAT at check
 
 ## Outcome
 
-Ordered on 2026-10-15 from Amazon.de: the TerraMaster D4-320 (diskless) at 188,99 € per the order line, in one order with the Bosch drill (see `2026-10-16-bosch-power-for-all-drill.md`). Estimated arrival 21 November 2026. The order total was 223,36 € for both items, which equals the two line prices (265,79 €) divided by 1,19: Amazon.de removed the 19 % German VAT at checkout for the Åland address.
+Ordered on 2026-10-15 from Amazon.de: the TerraMaster D4-320 (diskless), one order with the Bosch drill (see `2026-10-16-bosch-power-for-all-drill.md`). The order line shows 188,99 €, the VAT-inclusive listing price; the order total of 223,36 € for both items equals the line sum divided by 1,19, so Amazon.de charged 158,82 € for the enclosure without VAT. Finnish VAT at Åland customs brings it to about 199,32 € (estimate at 25,5 %, before any customs fee). Estimated arrival 21 November 2026.
 
 ## Open questions
 

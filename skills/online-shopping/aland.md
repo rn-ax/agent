@@ -17,6 +17,8 @@ leverans.ax is a refreshable list of shops that sell to Åland, and the first pl
 
 Amazon is the one Amazon site that sells to Åland without VAT: amazon.de. The leverans.ax entry "Amazon" refers to it.
 
+Prices are compared with VAT included. A tax-free shop's checkout price carries no VAT, and the user then pays Finnish VAT (25.5 %) at Åland customs, so the price to compare with a Finnish shop's price is the tax-free charge multiplied by 1.255, plus any customs or handling fee. Amazon.de listings show the German VAT-inclusive price, and the VAT-free charge at checkout is the listing price divided by 1.19.
+
 `leverans-ax-snapshot` reads every page of the directory and prints `{source, fetchedAt, pages, knownChecked, new, removed, shops: [{name, category, label, vat, page}]}` as JSON on stdout (progress on stderr). `label` is leverans.ax's wording and `vat` its normalized form: `tax-border-number`, `zero-vat`, `zero-vat-via-support`, `ioss`, `refund-via-support`, `delivers`.
 
 `leverans-ax-known.txt` records the shops the user has been told about (first line `# checked <date>`, then one name per line). `new` and `removed` in the script's output are the differences against it.

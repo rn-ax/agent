@@ -50,7 +50,7 @@ Both Advanced 18V-80 tools ship with an auxiliary side handle ("Zusatzhandgriff"
 
 ## Outcome
 
-Ordered on 2026-10-15 from Amazon.de: the Bosch AdvancedDrill 18V-80 QuickSnap (78 Nm, 13 mm metal chuck, magnet cap, without battery) at 76,80 € per the order line, together with the TerraMaster D4-320. That is below the 139 € Clas Ohlson price. German VAT was removed at checkout (the order total is the line sum divided by 1,19), so the drill cost about 64,54 € before Åland customs. Estimated arrival 21 November 2026.
+Ordered on 2026-10-15 from Amazon.de: the Bosch AdvancedDrill 18V-80 QuickSnap (78 Nm, 13 mm metal chuck, magnet cap, without battery), together with the TerraMaster D4-320. The order line shows 76,80 €, the VAT-inclusive listing price, against 139 € at Clas Ohlson. Amazon.de charged 64,54 € without VAT (the order total is the line sum divided by 1,19); Finnish VAT at Åland customs brings it to about 81,00 € (estimate at 25,5 %, before any customs fee). Estimated arrival 21 November 2026.
 
 ## Open questions
 
