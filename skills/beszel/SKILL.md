@@ -45,7 +45,13 @@ The GTX 1650 is reported through NVML. The TrueNAS agent uses the NVIDIA image v
 
 Network monitors are probes that each agent runs from its own host: `icmp`, `tcp` (target plus port), `http` (HTTPS monitors also track certificate expiry) and `dns` (optional DNS server to query). They appear under Network Monitors in the hub and can be compared across systems. They are records in the hub's database, created in the web UI or through the hub's authenticated API; `config.yml` defines systems only, so monitors have no file-based definition. ICMP works from the host-network agent container without extra capabilities.
 
-Monitors worth having, because they answer "is this host's network healthy": from TrueNAS, ICMP to the routers (`192.168.1.1`, `192.168.0.1`) and to `1.1.1.1`, plus a DNS lookup; from each Contabo box, ICMP to `192.168.1.142` (exercises the WARP private route), TCP to `truenas.lan:30333` (the hub itself) and ICMP to `1.1.1.1`.
+Monitors are managed through a dedicated hub superuser, `agent@beszel.local`, created with `sudo docker exec ix-beszel-beszel-1 /beszel superuser create <email> <password> --dir /beszel_data` on TrueNAS. Its credentials were written to a dated file on the user's Desktop for their password manager (the Agent 1Password vault is read-only to agents, so nothing is stored there). Authenticate against `POST /api/collections/_superusers/auth-with-password`; `GET /api/collections/network_monitors` returns the live field list, and `POST /api/collections/network_monitors/records` takes `system` (record id from `/api/collections/systems/records`), `target`, `protocol`, `interval` (seconds), `enabled`, plus `port` for TCP and `server` for DNS. Probe results (`res`, `resAvg1h`, `loss1h`) are in microseconds.
+
+Reachability shapes which monitors make sense, and each was tested from the real host before it was created:
+- TrueNAS sits directly on the Inteno router's `192.168.1.x` network, so it reaches `192.168.1.1`; the Synology router (`192.168.0.1`) is behind the Inteno and unreachable from there.
+- ICMP from the Contabo boxes to `192.168.1.142` fails because WARP carries TCP and UDP but not ping. Reachability of TrueNAS from the Contabo boxes is therefore watched with TCP and HTTP.
+
+Current monitors (60 s interval): TrueNAS — ICMP `192.168.1.1`, ICMP `1.1.1.1`, DNS `rn.ax` (system resolver), DNS `cloudflare.com` via `1.1.1.1`. Contabo 1 and Contabo 2, each — ICMP `1.1.1.1`, TCP `truenas.lan:30333` (the hub itself), HTTP `http://truenas.lan:30155/api/version` (Windmill, the service CI depends on).
 
 ## Open items
 
