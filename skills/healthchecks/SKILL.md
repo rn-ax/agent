@@ -9,6 +9,10 @@ This is the accumulating knowledge base for the user's Healthchecks.io setup. Fi
 
 **Related systems**: the Home Assistant side (integration, entry, sensors) is covered in the `home-assistant` skill; the 1Password wrapper convention is in the `home` skill.
 
+## Purpose
+
+Healthchecks.io is the external watchdog for all of the user's systems: it lives outside the home network and the Contabo boxes, so it keeps working when everything else is down. Each system pings its own check on a schedule, and a missed ping notifies the user's phone through Pushover so they can react. A check going down therefore means the system stopped pinging (or lost its path to the internet), and that notification is the user's first signal that something is wrong.
+
 ## Credentials
 
 The "Healthchecks" item in the "Agent" 1Password vault holds one **section per Healthchecks.io project**: `Contabo`, `TrueNAS` and `Home`. Each section has:
