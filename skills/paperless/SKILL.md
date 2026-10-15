@@ -9,6 +9,10 @@ This is the accumulating knowledge base for the user's Paperless-ngx instance. F
 
 **Related systems**: see the `truenas` skill — Paperless has moved to TrueNAS (see "TrueNAS deployment" below); the "Instance" section describes the previous Mac mini setup, which is kept stopped as a fallback. See the `home` skill for the topology map.
 
+## Mentioning documents to the user
+
+**Whenever a reply to the user mentions a Paperless document by id, write it as a link:** `[#10440](https://paper.rn.ax/documents/10440/details)`, not a bare `#10440`. Use the public host `paper.rn.ax` (the link is for the user's browser, not for API calls, which use the LAN address, see "API access"), and do it everywhere in a reply: lists, tables, summaries. It applies to messages to the user only; commit messages, PR text and these docs keep plain ids. The user asked for this (2026-10-15) while reviewing OCR fixes, where they open each document to check it.
+
 ## Instance
 
 **Superseded 2026-10-13: Paperless now runs on TrueNAS (see "TrueNAS deployment").** What follows describes the Mac mini instance, now stopped but intact.
