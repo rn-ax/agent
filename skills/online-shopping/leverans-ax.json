@@ -1,0 +1,924 @@
+{
+ "source": "https://leverans.ax/alla-foretag/",
+ "fetchedAt": "2026-10-15T20:50:30Z",
+ "pages": 9,
+ "shops": [
+  {
+   "name": "Adlibris",
+   "category": "Böcker, Spel, Garn m.m.",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 1
+  },
+  {
+   "name": "Aim'n",
+   "category": "Damkläder",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Aliexpress",
+   "category": "Alla kategorier",
+   "label": "Momsfri förtullning med IOSS: IM5280002556",
+   "vat": "ioss",
+   "page": 1
+  },
+  {
+   "name": "Amazon",
+   "category": "Alla kategorier",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 1
+  },
+  {
+   "name": "Autodoc",
+   "category": "Bildelar & däck",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 1
+  },
+  {
+   "name": "Autodude",
+   "category": "Finlands största bilvårdsbutik",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Autonvaraosat24",
+   "category": "Bildelar & tillbehör",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Babyshop",
+   "category": "Barnkläder & babykläder",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Bangerhead",
+   "category": "Hårvård & hudvårdsprodukter",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 1
+  },
+  {
+   "name": "Bast Sauna",
+   "category": "Bastutält",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 1
+  },
+  {
+   "name": "Bearel",
+   "category": "Skönhet",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Bicone Design",
+   "category": "Smycken",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 1
+  },
+  {
+   "name": "Bike Discount",
+   "category": "Cyklar & cykeldelar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 1
+  },
+  {
+   "name": "Biltema",
+   "category": "Hem & hushåll",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 1
+  },
+  {
+   "name": "Björn Borg",
+   "category": "Kläder för alla",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 1
+  },
+  {
+   "name": "Bokus",
+   "category": "Böcker, spel & pussel",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Boozt",
+   "category": "Dam & herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Booztlet",
+   "category": "Dam & herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Borras Outdoor",
+   "category": "Friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Byggfabriken",
+   "category": "Bygg & inredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Byggnadsapoteket",
+   "category": "Byggnadsmaterial & renovering",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Caia",
+   "category": "Skönhetsprodukter",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 2
+  },
+  {
+   "name": "Clas Ohlson",
+   "category": "Allt för hemmet",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 2
+  },
+  {
+   "name": "Color4care",
+   "category": "Arbetskläder",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 2
+  },
+  {
+   "name": "Common Clouds",
+   "category": "Hudvård",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 2
+  },
+  {
+   "name": "Dentaworks",
+   "category": "Tandvård & tandblekning",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 2
+  },
+  {
+   "name": "Dermosil",
+   "category": "Allt Inom Skönhet",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 2
+  },
+  {
+   "name": "Dinox",
+   "category": "Träningsutrustning & tillbehör för hemmagym",
+   "label": "Återbetalning av moms via kontakt med kundtjänst",
+   "vat": "refund-via-support",
+   "page": 2
+  },
+  {
+   "name": "Dyson",
+   "category": "Dammsugare, fläktar & tillbehör för hemmet",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 2
+  },
+  {
+   "name": "Dyson",
+   "category": "Hårfönar, locktänger & hårstylingsverktyg",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 2
+  },
+  {
+   "name": "Ebay",
+   "category": "Alla kategorier",
+   "label": "Momsfri förtullning med IOSS: IM2760000742",
+   "vat": "ioss",
+   "page": 3
+  },
+  {
+   "name": "Ellos",
+   "category": "Damkläder",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 3
+  },
+  {
+   "name": "Emp",
+   "category": "Kläder för alla",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 3
+  },
+  {
+   "name": "Favoptic",
+   "category": "Glasögon, linser",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Feel Vivid",
+   "category": "Hälsa & kosttillskott",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Fenix-valaisimet",
+   "category": "Lampor & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Findogs",
+   "category": "Husdjursartiklar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Finnish Design Shop",
+   "category": "Möbler & inredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Finnparttia",
+   "category": "Bygg & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Green Trail",
+   "category": "Friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Gudrun Sjöden",
+   "category": "Damkläder & heminredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "H&M",
+   "category": "Kläder för alla",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 3
+  },
+  {
+   "name": "Häijään Urheilutarvike",
+   "category": "Sport & friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Happy Angler",
+   "category": "Sport & Fritid",
+   "label": "Återbetalning av moms, kontakta kundtjänst",
+   "vat": "refund-via-support",
+   "page": 3
+  },
+  {
+   "name": "Heatland Discgold Store",
+   "category": "Allt inom Discgolf",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 3
+  },
+  {
+   "name": "Hobbyfactory",
+   "category": "Hobby",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Hobbyväxthus",
+   "category": "Växthus, växtbelysning & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Homeroom",
+   "category": "Skandinaviens största sortiment av möbler, utemöbler och inredning",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 4
+  },
+  {
+   "name": "Hööks",
+   "category": "Häst & ridtillbehör",
+   "label": "Momsfri försljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Horze",
+   "category": "Ridtillbehör & hästutrustning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Hotlips",
+   "category": "Vuxenleksaker",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Hotstuff",
+   "category": "Vinylskivor",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "House of Lola",
+   "category": "Damkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Hylte Hunting",
+   "category": "Jakt & friluftsliv",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 4
+  },
+  {
+   "name": "Ifolor",
+   "category": "Foto & tillbehör",
+   "label": "Skattegränsnummer (ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 4
+  },
+  {
+   "name": "Ikea",
+   "category": "Möbler & heminredning",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 4
+  },
+  {
+   "name": "Iloaskel",
+   "category": "Skor för alla",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Industriacenter",
+   "category": "Maskiner, verktyg & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Issikka",
+   "category": "Ridtillbehör & hästutrustning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Jiggar",
+   "category": "Sportfiskebutik",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 4
+  },
+  {
+   "name": "Jimms",
+   "category": "Datorer & tillbehör",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 5
+  },
+  {
+   "name": "Jysk",
+   "category": "Möbler & heminredning",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 5
+  },
+  {
+   "name": "Kärcher",
+   "category": "Städartiklar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Kärkkäinen",
+   "category": "Hemelektronik & spel",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Kivikangas",
+   "category": "Fiske & friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Kotieläintarvike",
+   "category": "Husdjursartiklar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Kuntokauppa",
+   "category": "Sport & Fritid",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 5
+  },
+  {
+   "name": "Kurre",
+   "category": "Fiske & friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Länna möbler",
+   "category": "Möbler & heminredning",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 5
+  },
+  {
+   "name": "Lastentarvike",
+   "category": "Barn & familj",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Lautapelit",
+   "category": "Brädspel och familjespel för barn och vuxna",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Ledgrossisten",
+   "category": "Hemelektronik & lampor",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Leso",
+   "category": "Damkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Lineakauniskoti",
+   "category": "Möbler & heminredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Lujakunto",
+   "category": "Innebandyutrustning & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 5
+  },
+  {
+   "name": "Lumise",
+   "category": "Lampor & belysning",
+   "label": "Momsfri försäljnijng",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Lureshop",
+   "category": "Fiskeredskap & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Marineparts",
+   "category": "Båtar & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Medic Online",
+   "category": "Stödstrumpor & övriga hjälpmedel",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Meritta Bra",
+   "category": "Damunderkläder",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 6
+  },
+  {
+   "name": "Mobiilitukku",
+   "category": "Telefonskydd, reservdelar & tillbehör",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 6
+  },
+  {
+   "name": "Motocafe",
+   "category": "Motorcyklar, snöskotrar och mopeder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Mprengas-online",
+   "category": "Mc-däck & tillbehör",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 6
+  },
+  {
+   "name": "Mukama",
+   "category": "Väskor & accessoarer",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Multitronic",
+   "category": "Hemelektronik",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 6
+  },
+  {
+   "name": "My Dream Day",
+   "category": "Festartiklar & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Nelly",
+   "category": "Damkläder & accessoarer",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Netrauta",
+   "category": "Allt för hemmet",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Nettiverstas",
+   "category": "Verktyg & maskiner",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "NLY MAN",
+   "category": "Herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 6
+  },
+  {
+   "name": "Nordica golf",
+   "category": "Golfutrustning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Nudie Jeans Co",
+   "category": "Dam & herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Outnorth",
+   "category": "Allt inom sport & fritid",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Pashminawear",
+   "category": "Halsdukar, mössor & övriga accessoarer",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Pölder Sport",
+   "category": "Sport & fritid",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Pompdelux",
+   "category": "Barnkläder för alla barn",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Power",
+   "category": "Hushållsapparater, elektronik, tv-apparater & telefoner",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 7
+  },
+  {
+   "name": "Punanaamio",
+   "category": "Maskerad & utklädnader",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Quicktest",
+   "category": "Hemtester",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 7
+  },
+  {
+   "name": "Reima",
+   "category": "Ytterkläder för alla barn",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Revolution Race",
+   "category": "Friluftskläder för alla",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Rose Bikes",
+   "category": "Cyklar & tillbehör",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 7
+  },
+  {
+   "name": "Ruoto",
+   "category": "Jakt & fiske",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 7
+  },
+  {
+   "name": "Scandinavian Outdoor",
+   "category": "Allt inom sport & fritid",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Scandinavian Outdoor",
+   "category": "Friluftskläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 7
+  },
+  {
+   "name": "Schmiedmann",
+   "category": "Bildelar & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Sekelskifte",
+   "category": "Hem & inredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Sinful",
+   "category": "Vuxenleksaker",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Sissos Myymälä",
+   "category": "Jakt & friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Sportfishtackle",
+   "category": "Fiske & friluftsliv",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Stayhard",
+   "category": "Herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Staypro",
+   "category": "Bygg & tillbehör",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 8
+  },
+  {
+   "name": "Stiletto",
+   "category": "Damskor & herrskor",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Stockmann",
+   "category": "Mode, sport, hemprodukter och kosmetika",
+   "label": "Skattegränsnummer (Ingen extra moms eller förtullning)",
+   "vat": "tax-border-number",
+   "page": 8
+  },
+  {
+   "name": "Svala",
+   "category": "Friluftskläder, underställ och tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Svenska Gummihuset",
+   "category": "Bildäck, fälgar & tillbehör",
+   "label": "Momsfri försäljning via kontakt med kundtjänst",
+   "vat": "zero-vat-via-support",
+   "page": 8
+  },
+  {
+   "name": "Svenskt Tenn",
+   "category": "Heminredning & textilier",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Tailor Store",
+   "category": "Herrkläder",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "Taloon",
+   "category": "Bygg & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 8
+  },
+  {
+   "name": "The Body Shop",
+   "category": "Skönhet",
+   "label": "Återbetalning av moms via kundtjänst",
+   "vat": "refund-via-support",
+   "page": 8
+  },
+  {
+   "name": "Thomann",
+   "category": "Musik & ljudutrustning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Tooloutlet",
+   "category": "Verktyg & tillbehör",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Uittokalusto",
+   "category": "Friluftsutrustning och arbetsredskap",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Vaihteistokauppa",
+   "category": "Bildelar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Valostore",
+   "category": "Finlands största butik för extrabelysning",
+   "label": "Levererar till Åland",
+   "vat": "delivers",
+   "page": 9
+  },
+  {
+   "name": "Varuste",
+   "category": "Sport & fritid",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Veke",
+   "category": "Möbler & heminredning",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Verkkokauppa",
+   "category": "Allt för hemmet",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Violey",
+   "category": "Hälsoprodukter & kosttillskott",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Wandamotor",
+   "category": "Motorcykel & mopeddelar",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  },
+  {
+   "name": "Widetoes",
+   "category": "Skor för alla",
+   "label": "Momsfri försäljning",
+   "vat": "zero-vat",
+   "page": 9
+  }
+ ]
+}
