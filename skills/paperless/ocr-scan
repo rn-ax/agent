@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Find Paperless documents with bad OCR through the REST API (read-only; no tags).
 
-    ocr-scan [scan] [--min-known 0.55] [--confirm-type NAME ...] [--report FILE]
+    ocr-scan [scan] [--hand-over [--tag-name bad-ocr]] [--min-known 0.55]
+                    [--confirm-type NAME ...] [--report FILE]
     ocr-scan ok ID|A-B ...      log these documents as confirmed OK
     ocr-scan ok --tag NAME      log every document that currently carries this tag (read-only on tags)
 
 `scan` fetches every document, scores the stored OCR text and lists the ones that fail in
-ocr-cache/flagged.csv (rewritten each run). It never writes to Paperless: no tags, no edits.
+ocr-cache/flagged.csv (rewritten each run). By default it never writes to Paperless: no tags,
+no edits. With --hand-over it tags every flagged document `bad-ocr` (the tag is created if
+missing, with no auto-matching) and logs those ids as confirmed: tagging is the handover to the
+user, who reviews and fixes them by hand, so from the scan's side they are done.
 `ok` appends document ids to the confirmed list, which later scans skip.
 
 Heuristics, all language-agnostic and computed on the `content` field (a document is
@@ -59,6 +63,7 @@ DEFAULT_CONFIRM_TYPES = ["Pyssel / Teckning"]
 MIN_DF = 3
 PAGE_SIZE = 100
 CHUNK = 200
+FLAG_TAG = "bad-ocr"
 FIELDS = "id,title,content,page_count,mime_type,document_type,tags"
 
 TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.U)
@@ -112,6 +117,21 @@ def fetch_documents():
 def inbox_tag_ids():
     # the API ignores an is_inbox_tag filter, so read the flag on each tag
     return {t["id"] for t in api("GET", "/tags/?page_size=1000")["results"] if t.get("is_inbox_tag")}
+
+
+def bulk_add_tag(ids, tag_id):
+    ids = sorted(ids)
+    for i in range(0, len(ids), CHUNK):
+        api("POST", "/documents/bulk_edit/", {"documents": ids[i:i + CHUNK], "method": "modify_tags",
+                                              "parameters": {"add_tags": [tag_id], "remove_tags": []}})
+
+
+def find_or_create_tag(name):
+    found = api("GET", "/tags/?" + urllib.parse.urlencode({"name__iexact": name}))["results"]
+    if found:
+        return found[0]["id"]
+    return api("POST", "/tags/", {"name": name, "color": "#d62728", "matching_algorithm": 0,
+                                  "is_inbox_tag": False})["id"]
 
 
 def type_ids(names):
@@ -210,6 +230,17 @@ def cmd_scan(args):
     for r, c in by_reason.most_common():
         print(f"  {r}: {c}")
 
+    if args.hand_over and flagged:
+        tid = find_or_create_tag(args.tag_name)
+        have = {d["id"] for d in docs if tid in (d.get("tags") or [])}
+        todo = [f["id"] for f in flagged if f["id"] not in have]
+        if todo:
+            bulk_add_tag(todo, tid)
+        append_confirmed([f["id"] for f in flagged])
+        print(f"handed over {len(flagged)} documents: tagged '{args.tag_name}' on {len(todo)}, logged as confirmed")
+    elif flagged:
+        print("nothing written to Paperless (use --hand-over to tag and log the flagged documents)")
+
     report = Path(args.report) if args.report else FLAGGED
     report.parent.mkdir(parents=True, exist_ok=True)
     cols = ["id", "title", "reasons", "known_ratio", "tokens", "chars", "chars_per_page", "ctrl", "frag"]
@@ -267,6 +298,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd")
     sc = sub.add_parser("scan", help="score every document and list the bad ones (default)")
+    sc.add_argument("--hand-over", action="store_true",
+                    help="tag flagged documents and log them as confirmed (the only option that writes to Paperless)")
+    sc.add_argument("--tag-name", default=FLAG_TAG, help="tag used by --hand-over (default: %(default)s)")
     sc.add_argument("--min-known", type=float, default=0.55, help="known-token ratio below which text is flagged")
     sc.add_argument("--confirm-type", action="append", help="also treat this document type as OK (repeatable)")
     sc.add_argument("--report", help="write the flagged list here instead of ocr-cache/flagged.csv")
