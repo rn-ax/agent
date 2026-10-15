@@ -25,7 +25,9 @@ This version names things differently from older Homebox docs and blog posts:
 - Inventory records are **entities** (`/entities`), not items. Locations are entities too, distinguished by `/entity-types`; `/entities/tree` returns the hierarchy.
 - Labels are **tags** (`/tags`).
 - `/entities/fields` and `/entities/fields/values` list the custom field names and values already in use — check these before inventing a new custom field name, so specs stay consistent across items.
-- Attachments: `POST /entities/{id}/attachments` uploads a file; `POST /entities/{id}/attachments/external` links one by URL.
+- Attachments: `POST /entities/{id}/attachments` uploads a file (`-F file=@… -F type=photo|manual|attachment|warranty -F name=…`; `-F primary=true` makes a photo the item's main image). Links to manuals and product pages go in the `Documentation` custom field as markdown; `POST /entities/{id}/attachments/external` answered 400 to `{title, url, type}`.
+- Creating a record takes two calls: `POST /entities` with `name`, `parentId`, `entityTypeId`, `tagIds` and `quantity` returns the new `id`, then `PUT /entities/{id}` with that `id` in the body fills in the built-in fields and the whole `fields` array (`type: "text"`, `name`, `textValue`). `purchaseDate` is sent as RFC 3339 (`2026-10-15T00:00:00Z`).
+- A custom field value of about 580 characters made the `PUT` fail with HTTP 500 `Unknown Error` while 383 characters were accepted, so long specs are split across several fields (`Tech Specs`, `Performance`, `Compatibility`, `Environment`, `Dimensions`).
 - `/templates` and `/templates/{id}/create-item` create items from a reusable field set.
 - `/group/exports` and `/entities/export` produce backups; `/actions/wipe-inventory` deletes everything, so treat it as off-limits without explicit instruction.
 

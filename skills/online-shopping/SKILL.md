@@ -46,6 +46,8 @@ Playwright and Chromium install into `~/.cache/online-shopping` on first use (on
 
 A request to find the right product for a need (as opposed to one price or stock lookup) is an investigation. Check `investigations/` for earlier work on the same product before starting. Keep a markdown file `investigations/<date>-<slug>.md` for each investigation and write it during the work, not afterwards: the request and requirements, the sources used and the ones that could not be read, the candidates with shop, price, date and Åland status, the findings, the recommendation given and the open questions. If the requirements are not clear enough to narrow the candidates, ask the user first.
 
+When the user says they ordered something, read the confirmation from their email (the `email` skill; search the product name), add the outcome (shop, price paid, expected delivery) to the investigation file, and create a Homebox record per item with the `Ordered` tag and the `Expected Delivery` field, specs, product images and manuals (the `homebox` skill). Order numbers and delivery addresses stay in Homebox and out of this public repo.
+
 ## Reporting results
 
 State the date the data was read, since price and stock change within days. Quote prices in the shop's own currency with VAT as shown to consumers, and say when an item is sold out, because a listed price on a sold-out item is not a price the user can pay.
