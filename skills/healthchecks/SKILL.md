@@ -51,8 +51,8 @@ The `healthchecksio` custom integration (`rn-ax/ha-healthchecksio`) does two job
 
 ## Migration in progress
 
-Apps moved to Uptime Kuma, and the three projects (`Contabo`, `TrueNAS`, `Home`) are to become one. Until that is done:
-- The old per-app checks (the eleven monocoque apps, Radarr, Sonarr, Prowlarr) and the TrueNAS cron jobs "Radarr/Sonarr/Prowlarr healthcheck" still exist and are superseded by Kuma monitors. The monocoque `healthcheck_ping` command and `healthcheck_id` registry fields go with them.
-- Healthchecks.io cannot move a check between projects, so consolidating means recreating the Contabo and Home Assistant checks in one project and repointing their pingers (the Contabo boxes, and the Home Assistant `healthchecksio` entry, which then lists every check as a sensor).
+The three projects (`Contabo`, `TrueNAS`, `Home`) are to become one. Healthchecks.io cannot move a check between projects, so consolidating means recreating the Contabo and Home Assistant checks in one project and repointing their pingers (the Contabo boxes, and the Home Assistant `healthchecksio` entry, which then lists every check as a sensor).
+
+The monocoque `healthcheck_ping` command and `healthcheck_id` registry fields ping checks that no longer exist, and are to be removed.
 
 Delete this section once both are done.
