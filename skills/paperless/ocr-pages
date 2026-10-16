@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mechanical helpers for fixing a document's OCR text by reading its pages yourself.
 
-    ocr-pages prep ID [--dpi 130] [--no-trim]
+    ocr-pages prep ID [ID ...] [--dpi 130] [--no-trim]
                                          back up the current text, download the original PDF, print
                                          every page's size, render an overview PNG per page (trimmed
                                          to the content when it sits in a corner of the page)
@@ -123,6 +123,13 @@ def content_box(pdf, page, w_pt, h_pt, margin=18):
 
 
 def cmd_prep(a):
+    for doc_id in a.ids:
+        print(f"=== {doc_id}")
+        prep_one(a, doc_id)
+
+
+def prep_one(a, doc_id):
+    a = argparse.Namespace(**{**vars(a), "id": doc_id})
     d = workdir(a.id)
     backup = d / "backup.json"
     if backup.exists():
@@ -232,7 +239,7 @@ def cmd_next(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("prep"); p.add_argument("id", type=int); p.add_argument("--dpi", type=int, default=130)
+    p = sub.add_parser("prep"); p.add_argument("ids", type=int, nargs="+"); p.add_argument("--dpi", type=int, default=130)
     p.add_argument("--no-trim", action="store_true"); p.set_defaults(f=cmd_prep)
     p = sub.add_parser("strips"); p.add_argument("id", type=int); p.add_argument("page", type=int)
     p.add_argument("--dpi", type=int, default=200); p.add_argument("--height", type=int, default=700); p.set_defaults(f=cmd_strips)
