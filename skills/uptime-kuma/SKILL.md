@@ -15,7 +15,7 @@ Kuma is the monitor for every app on TrueNAS. It actively probes each app, so an
 
 ## Instance
 
-Catalog app `uptime-kuma` (community train), web UI on `http://truenas.lan:31050` (LAN only). Data is a single SQLite database under `/app/data`, a host-path mount at `/mnt/Storage/Configuration/uptime-kuma/data`.
+Catalog app `uptime-kuma` (community train), web UI on `http://truenas.lan:31050` on the LAN and `https://kuma.rn.ax` publicly, a Cloudflare Tunnel published application behind Cloudflare Access (every path, including `/metrics` and status pages, redirects to the Access login). `kuma-api` uses the LAN address, which Access does not intercept. Data is a single SQLite database under `/app/data`, a host-path mount at `/mnt/Storage/Configuration/uptime-kuma/data`.
 
 The container runs as root with all capabilities dropped except `NET_RAW`. Root without `CAP_DAC_OVERRIDE` obeys file permissions, so the data directory keeps `apps:apps` ownership and carries a POSIX ACL granting `root` (UID 0) `rwx`, access and default (`setfacl -R -m u:0:rwx -d -m u:0:rwx`). Without that grant the container crash-loops on `EACCES: mkdir 'data/upload/'`.
 
