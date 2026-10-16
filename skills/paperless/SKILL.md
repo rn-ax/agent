@@ -11,7 +11,7 @@ This is the accumulating knowledge base for the user's Paperless-ngx instance. F
 
 ## Mentioning documents to the user
 
-**Whenever a reply to the user mentions a Paperless document by id, write it as a link:** `[#10440](https://paper.rn.ax/documents/10440/details)`, not a bare `#10440`. Use the public host `paper.rn.ax` (the link is for the user's browser, not for API calls, which use the LAN address, see "API access"), and do it everywhere in a reply: lists, tables, summaries. It applies to messages to the user only; commit messages, PR text and these docs keep plain ids. The user asked for this (2026-10-15) while reviewing OCR fixes, where they open each document to check it.
+**Whenever a reply to the user mentions a Paperless document by id, write it as a link:** `[#10440](https://paper.rn.ax/documents/10440/details)`, not a bare `#10440`. Use the public host `paper.rn.ax` (the link is for the user's browser, not for API calls, which use the LAN address, see "API access"), and do it everywhere in a reply: lists, tables, summaries. It applies to messages to the user only; commit messages, PR text and these docs keep plain ids.
 
 ## Instance
 
@@ -43,45 +43,75 @@ Things the migration guide (docs.paperless-ngx.com/migration-v3 — the site ret
 
 ## API access
 
-Credentials live in the "Paperless" item in the "Agent" 1Password vault: `password` = API token, first URL = the LAN address of the TrueNAS app (`http://truenas.lan:30070/`), second = the public `https://paper.rn.ax/`. The public hostname is behind Cloudflare Access, so token calls use the LAN URL. **Use `pl-api <method> <path> [curl-args...]`** (this skill's own directory; path is relative to `<base>/api`), e.g. `pl-api GET '/tags/?page_size=5'` or `pl-api POST /documents/bulk_edit/ -d '{"documents":[1,2],"method":"modify_tags","parameters":{"add_tags":[7],"remove_tags":[]}}'`. It pins `Accept: application/json; version=9`, because API versions below 9 are gone in v3. Prefer the API to `docker exec ... manage.py shell` over SSH: it needs no SSH session (the 1Password SSH agent approval lapses between agent calls), and bulk edits go through Paperless's own code so the search index and audit history stay consistent.
+Credentials live in the "Paperless" item in the "Agent" 1Password vault: `password` is the API token, the first URL is the LAN address of the TrueNAS app (`http://truenas.lan:30070/`) and the second is the public `https://paper.rn.ax/`. The public hostname is behind Cloudflare Access, so token calls use the LAN URL.
+
+`pl-api <method> <path> [curl-args...]` (this skill's directory) makes one authenticated request; the path is relative to `<base>/api`, for example `pl-api GET '/tags/?page_size=5'`. It pins `Accept: application/json; version=9`, because API versions below 9 do not exist in v3.
+
+`pl-tags [--add NAME]... [--remove NAME]... [--dry-run] ID...` adds and removes tags on documents. It checks that the tags and documents exist before it writes, writes through Paperless's bulk edit, reads the result back, and reports what changed.
+
+The scripts in this skill print one JSON context on stdout: their inputs, each step they did, and the ids, paths and counts the next step needs. On failure the context carries an `error` that says which step failed and what had been done by then. They all share `paperless_lib.py`.
+
+The API is preferred to `docker exec ... manage.py shell` over SSH. It needs no SSH session (the 1Password SSH agent approval lapses between agent calls), and bulk edits go through Paperless's own code, so the search index and audit history stay consistent.
 
 ## OCR quality scan
 
-**Use `ocr-scan`** (this skill's own directory; credentials like `pl-api`) to find documents with bad OCR. It fetches every document through the API (about a minute for 9,300), scores the stored `content` text, and writes the failing ones, with reasons, to `ocr-cache/flagged.csv` (rewritten each run). By default it never writes to Paperless. Confirmed 2026-10-15: 9,336 documents, 579 flagged.
+`ocr-scan` fetches every document through the API (about a minute for 9,300), scores the stored `content` text, and writes the documents that fail, with their reasons, to `ocr-cache/flagged.csv`. It reads only: it changes nothing in Paperless and nothing in the confirmed list. Its context holds the counts, the reasons, the flagged ids and the report path.
 
-**The goal is that every document ends up in `ocr-cache/confirmed_ok.csv`**, a plain log of document ids, one per line, that the user is happy with (after fixing it by hand if needed). In the file = confirmed OK, scans skip it. Not in the file = not confirmed, scored on every run even if it passes. Nothing is recorded about documents that merely pass, and the file is the only state (no cursor, no hashes); it is gitignored and local to the machine. Add to it with `ocr-scan ok 35 53 57-80`, or `ocr-scan ok --tag NAME` for every document currently carrying a tag. Don't put documents in it unless they are fine or handed over (see below).
-
-**Handover**: `ocr-scan scan --hand-over` (the only option that writes to Paperless) tags every flagged document `bad-ocr` (`--tag-name` changes it; created if missing, no auto-matching) and logs those ids in `confirmed_ok.csv`. Adding the tag *is* the handover to the user, who reviews and fixes them by hand, so from the scan's side they are done and never flagged again. Without `--hand-over` the scan only writes `flagged.csv`. The user removes `bad-ocr` from a document once it's handled. Tested 2026-10-15 with a throwaway tag against the live API; the live 579 were handed over with `ocr-scan ok --tag bad-ocr`.
+`ocr-cache/confirmed_ok.csv` is a plain list of document ids, one per line, that the user is happy with. A document in the file is skipped by scans. A document not in the file is scored on every run, even when it passes. Nothing is recorded about documents that merely pass, and the file is the only state: no cursor, no hashes. It is gitignored and local to the machine. `ocr-scan ok 35 53 57-80` appends ids to it, `--tag NAME` appends every document currently carrying that tag, `--type NAME` every document of that type, and `--dry-run` shows what would be appended.
 
 Rules applied before any scoring, in this order:
-1. **Inbox first, overriding everything**: a document carrying a tag with Paperless's `is_inbox_tag` flag (currently `Inbox`) is skipped completely. It isn't categorised yet, so its metadata, such as the document type below, can't be trusted. `ok` refuses inbox documents too. (The API ignores an `is_inbox_tag` filter on `/tags/`, so the script reads the flag on each tag.)
-2. Already in `confirmed_ok.csv`: skipped.
-3. **Document type "Pyssel / Teckning" counts as confirmed without analysis** (children's drawings rarely have meaningful text; 53 of its 59 documents scored as bad OCR before this rule): the scan appends them to the confirmed list. Matched by name, case-insensitively, so a renamed type produces a warning; add more with `--confirm-type`. Not to be confused with "Anteckningar".
+1. A document carrying a tag with Paperless's `is_inbox_tag` flag is skipped entirely, because it is not categorised yet and its metadata, such as the document type below, cannot be trusted. `ok` skips inbox documents as well. The API ignores an `is_inbox_tag` filter on `/tags/`, so the script reads the flag on each tag.
+2. A document in `confirmed_ok.csv` is skipped.
+3. A document of the type "Pyssel / Teckning" is skipped, because children's drawings rarely have meaningful text. The type is matched by name, case-insensitively, and `--confirm-type NAME` adds more. It is a different type from "Anteckningar".
 
-Heuristics (language-agnostic, since the library mixes Swedish, Finnish and English; any one failing flags a document): `no_text` (under 20 characters), `broken_encoding` (control characters above 2%, a font whose character table is wrong so the stored text is shifted: `VDU LQIRUPDWLRQHQ` is "information" with every character 29 off, while the page looks fine; Paperless keeps an existing text layer by default, so these need `ocrmypdf --force-ocr` or `PAPERLESS_OCR_MODE=force`; `redo` only replaces invisible OCR text and probably doesn't help, but this hasn't been tested), `unknown_words` (with 15+ letter tokens, fewer than 55% occur in at least 3 other documents; real words repeat across a library and garbage mostly doesn't), `thin_text` (under 15 tokens and 150 characters per page), `fragmented` (over 60% of words have two letters or fewer: spaced-out letters like `Samue l Valen t i n`, which the known-word ratio cannot see because the fragments are too short to count). Digits are ignored so receipts aren't punished for numbers. The thresholds were set by reading sample text, not by checking page images; expect false positives, especially noisy thermal receipts. A `symbol_noise` rule was tried and dropped: everything it flagged was already caught.
+Heuristics are language-agnostic, since the library mixes Swedish, Finnish and English. Any one failing flags a document:
+- `no_text`: under 20 characters.
+- `broken_encoding`: control characters above 2% of the text. The embedded font's character table is wrong, so the stored text is shifted (`VDU LQIRUPDWLRQHQ` is "information" with every character 29 off) while the page looks fine. Paperless keeps an existing text layer by default, so these pages need OCR from the image, with `ocrmypdf --force-ocr` or `PAPERLESS_OCR_MODE=force`.
+- `unknown_words`: with at least 15 letter tokens, fewer than 55% occur in at least 3 other documents. Real words repeat across a library and garbage mostly does not.
+- `thin_text`: under 15 tokens and under 150 characters per page.
+- `fragmented`: over 60% of the words have two letters or fewer, as in spaced-out text like `Samue l Valen t i n`, which the known-word ratio cannot see because the fragments are too short to count.
 
-Re-OCR itself is done in the Paperless UI (the **Reprocess** action, which creates `reprocess_document` tasks). The 579 documents flagged on 2026-10-15 were tagged `bad-ocr` and logged as the first handover; the tag is the user's manual review list, not kept in sync with the scan. (An earlier three-tier `reocr1-3` tagging was dropped and those tags deleted.)
+Digits are ignored, so receipts are not penalised for numbers. The thresholds come from reading sample text, not from checking page images, so expect false positives, mostly noisy thermal receipts.
+
+Handing flagged documents to the user is three separate steps:
+1. `ocr-scan` and read `flagged_ids` from its context.
+2. `pl-tags --add bad-ocr ID...` tags them. The tag is the user's manual review list and is not kept in sync with the scan; the user removes it from a document once it is handled.
+3. `ocr-scan ok ID...` logs them, so later scans do not flag them again.
+
+Re-OCR through Paperless itself is the **Reprocess** action in the UI, which creates `reprocess_document` tasks.
 
 ## Fixing OCR by reading the pages yourself
 
-**Scope: only for documents with bad OCR and too much text for the user to retype by hand.** The user fixes short ones themselves; a document is handed over by tagging it `claude` (find it with `pl-api GET '/tags/?name__iexact=claude'`, then `/documents/?tags__id__all=<id>`). Leave that tag in place unless asked. It is slow and uses a lot of image reading, so don't do it for documents that merely score a bit low. The method: render the pages, read them as images (the Read tool shows PNGs), transcribe, and write the text into the document's `content` field through the API. Done 2026-10-15 for two documents: #10440 (a 2-page vehicle registration certificate whose repeating "ÅLAND" background watermark had turned Tesseract's 7,973 characters into noise; 3,055 characters transcribed) and #35 (a 2-page letter whose page 2 is a dense, blurry phone scan of Finnish and Swedish privacy boilerplate; 11,528 characters). Both passed `ocr-scan`'s heuristics afterwards (known-word ratio 0.92 and 0.75).
+This is for documents with bad OCR and too much text for the user to retype by hand. The queue is the documents tagged `bad-ocr`, and a finished document gets the tag `claude-ocr` instead. The method: render the pages, read them as images (the Read tool shows PNGs), transcribe, and write the text into the document's `content` field.
 
-**Use `ocr-pages`** (this skill's own directory; it calls `pl-api`):
-1. `ocr-pages prep ID` backs up the current text (never overwriting an earlier backup), downloads the original PDF, prints **every page's size** and renders an overview PNG per page. Read the overview first for the layout.
-2. For small or blurry text, `ocr-pages strips ID PAGE` cuts the page into full-width overlapping strips at 200 dpi (about 2,100 × 700 px, which stays legible even on a smudged scan; the Read tool downsizes anything larger than about 2,000 px, so whole pages are too small for fine print). `ocr-pages crop ID PAGE X Y W H` cuts one region; X, Y, W and H are **pixels at that dpi** (points × dpi / 72), not points, and mixing the two up cost several wasted crops. Pages in one PDF can differ in size (#35: A4 and 793 × 1224 pt), so always use each page's own size. There is no Pillow here; `pdftoppm` does the cropping.
-3. Write the transcription to a text file, then `ocr-pages put ID FILE` (`--dry-run` first if unsure). It replaces `content`, reads it back and checks it, refuses empty text, then **swaps the tags: adds `claude-ocr` and removes `bad-ocr`** (`--no-tags` to skip; `ocr-pages done ID` does only the swap). If you can't do a document, `ocr-pages skip ID "reason"` leaves `bad-ocr` on it and logs why, and `ocr-pages next` lists what is still tagged `bad-ocr` and not skipped, fewest pages first, so work can resume after an interruption. The tags are the record of what is done (`claude-ocr` and no `bad-ocr`); skips are in `$CLAUDE_JOB_DIR/tmp/paperless-ocr/skipped.jsonl`.
+`ocr-pages` (this skill's directory) provides the mechanical steps, and the agent composes them:
+1. `ocr-pages next` lists the documents still tagged `bad-ocr` and not skipped, fewest pages first.
+2. `ocr-pages prep ID...` backs up the current text (never overwriting an earlier backup), downloads the originals and renders an overview PNG per page, with every page's size in the context. Read the overviews first for the layout.
+3. For small or blurry text, `ocr-pages strips ID PAGE` cuts a page into full-width overlapping strips at 200 dpi. About 2,100 × 700 px stays legible even on a smudged scan, and the Read tool downsizes anything larger than about 2,000 px, so a whole page is too small for fine print. `ocr-pages crop ID PAGE X Y W H` cuts one region, with X, Y, W and H in **pixels at that dpi** (points × dpi / 72), not points. `ocr-pages rotate ID PAGE DEGREES` turns a sideways scan upright; text running down the page needs 270.
+4. Write the transcription to a text file and run `ocr-pages put ID FILE` (`--dry-run` first if unsure). It replaces `content`, reads it back and verifies it, and refuses empty text. It writes only the text.
+5. `pl-tags --add claude-ocr --remove bad-ocr ID...` marks finished documents.
+6. A document that cannot be fixed stays tagged `bad-ocr`, and `ocr-pages skip ID "reason"` logs why so `next` stops offering it.
 
-How to transcribe: reading order, top to bottom; a field label and its value on separate lines; keep every language that is printed (these are often bilingual Swedish and Finnish); keep diacritics, numbers, identifiers and dates exactly; leave out background watermarks, barcodes and stray page-marker numbers, because they are not content. Re-crop at a higher dpi for any name, number or amount you can't read; never guess those. For standard boilerplate text with a few smudged words, resolve them from context, but **tell the user which words were inferred** (and any label normalised, such as "Brev id föraren" read as "Bredvid föraren"). Boilerplate such as the EU multilingual caption on a registration certificate is best-effort.
+Pages in one PDF can differ in size, so each page's own size is used. Scans often carry a crop box smaller than the media box; `ocr-pages` renders the crop box and trims each page to its content, because an image view costs by pixel area and a receipt sits in a corner of an A4 page.
 
-What the first ten (2026-10-15) taught, mostly about which documents to do and how:
-- **Pictures with no text** (a collage, a photograph) can't be fixed; skip them. They are flagged `no_text` because they are typed as ordinary documents; typing them "Pyssel / Teckning" would make the scan confirm them.
-- **Picture-only manuals** (instruction sheets, installation guides) have almost no text: part labels, step numbers, dimensions, reference numbers, a multilingual title block. Transcribe exactly that, put a one-line marker such as `[Bruksanvisning med bilder, nästan ingen text]` first, and don't describe the pictures.
-- **Handwriting** (bank slips, receipts, score sheets, a school test): write what is legible, mark the rest `[oläsligt]` and tag handwritten parts `[handskrivet]`; never guess an account number or a name. Sums on the page are a good check (a currency conversion, a test's marks adding up to the printed total). Where table rows don't line up, transcribe column by column and say so in the text.
-- **CAD drawings** with hundreds of dimension labels, and PDFs that fail with poppler errors like `Unknown operator 'e+09'` (the corrupt-stream class above), are better repaired mechanically with `analyze-pdf` and reprocessed than read; skip them with that reason.
-- **Don't delegate the reading to a cheaper model.** A Haiku agent was tried on five documents already done by hand (3 handwritten, a school test, a multilingual guide): it misread amounts (336,41 as 376,41 and 339,91 as 329,91, where the page's own arithmetic proves the right values), truncated an account number, read 145 as 445, invented a full table of numbers for a handwritten sheet it was told to transcribe column by column, invented a Bulgarian title, and wrote hedges like `(eller liknande)` into the text. It used about 57,000 tokens for five documents, so it wasn't cheaper either. A wrong plausible number is worse than bad OCR, so read the pages yourself, in batches: `ocr-pages prep` takes several ids, view the images in one call, write the text files and `put` in the next.
-- `ocr-pages prep` trims each page to its content (a receipt sits in a corner of an A4 page, and image cost is by pixel area), saves non-PDF originals with the right extension, and is quiet about poppler warnings. Cost in practice: about 6,000 tokens per document for this mixed ten, much less for a single receipt.
+How to transcribe:
+- Reading order, top to bottom, with a field label and its value on separate lines.
+- Keep every language that is printed; the documents are often bilingual Swedish and Finnish.
+- Keep diacritics, numbers, identifiers and dates exactly.
+- Leave out background watermarks, barcodes and stray page-marker numbers, because they are not content.
+- Re-crop at a higher dpi for any name, number or amount that is hard to read, and never guess one.
+- Mark handwriting `[handskrivet]` and anything unreadable `[oläsligt]`. Where table rows do not line up, transcribe column by column and say so in the text.
+- Standard boilerplate with a few smudged words can be resolved from context, and the user is told which words were inferred and which labels were normalised.
+- Sums on the page are a check on the reading: a currency conversion, or marks adding up to a printed total.
 
-Limits: only `content` changes, which is what Paperless searches. The archive PDF and its text layer are untouched, so searching inside the PDF viewer still sees the old text, and **running Reprocess afterwards overwrites the fixed text**. The old text stays in the backup (`$CLAUDE_JOB_DIR/tmp/paperless-ocr/ID/backup.json`) and in Paperless's own audit history for the document.
+What kinds of documents come up:
+- Pictures with no text, such as a collage or a photograph, cannot be fixed and are skipped. They are flagged `no_text` because they are typed as ordinary documents; typing them "Pyssel / Teckning" makes the scan skip them.
+- Picture-only manuals have almost no text: part labels, step numbers, dimensions, reference numbers and a multilingual title block. Transcribe exactly that, start with a one-line marker such as `[Bruksanvisning med bilder, nästan ingen text]`, and do not describe the pictures.
+- CAD drawings with hundreds of dimension labels, and PDFs that fail with poppler errors like `Unknown operator 'e+09'` (the corrupt-stream class above), are repaired mechanically with `analyze-pdf` and reprocessed, so they are skipped here.
+- Reading is done by the main agent. Cheaper models misread amounts and identifiers plausibly, invent tables for handwritten sheets, and write hedges such as `(eller liknande)` into the text. A wrong, plausible number is worse than bad OCR.
+- Plan for roughly 3,000 to 6,000 tokens per document, less for a single receipt. Reading several documents' images in one call and writing the files in the next keeps the number of calls low.
+
+Only `content` changes, which is what Paperless searches. The archive PDF and its text layer are untouched, so searching inside the PDF viewer still sees the old text, and **running Reprocess afterwards overwrites the fixed text**. The old text stays in the backup (`$CLAUDE_JOB_DIR/tmp/paperless-ocr/ID/backup.json`) and in Paperless's own audit history for the document.
 
 ## Snapshots
 

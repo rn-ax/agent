@@ -1,58 +1,52 @@
 #!/usr/bin/env python3
-"""Find Paperless documents with bad OCR through the REST API (read-only; no tags).
+"""Find Paperless documents with bad OCR through the REST API.
 
-    ocr-scan [scan] [--hand-over [--tag-name bad-ocr]] [--min-known 0.55]
-                    [--confirm-type NAME ...] [--report FILE]
-    ocr-scan ok ID|A-B ...      log these documents as confirmed OK
-    ocr-scan ok --tag NAME      log every document that currently carries this tag (read-only on tags)
+    ocr-scan [scan] [--min-known 0.55] [--confirm-type NAME ...] [--report FILE]
+        Read every document, score its stored OCR text, and list the ones that fail.
+    ocr-scan ok [ID|A-B ...] [--tag NAME] [--type NAME] [--dry-run]
+        Log documents as confirmed OK. The only command that writes (one append to the confirmed list).
 
-`scan` fetches every document, scores the stored OCR text and lists the ones that fail in
-ocr-cache/flagged.csv (rewritten each run). By default it never writes to Paperless: no tags,
-no edits. With --hand-over it tags every flagged document `bad-ocr` (the tag is created if
-missing, with no auto-matching) and logs those ids as confirmed: tagging is the handover to the
-user, who reviews and fixes them by hand, so from the scan's side they are done.
-`ok` appends document ids to the confirmed list, which later scans skip.
+`scan` reads only. It writes the flagged list to a report file (ocr-cache/flagged.csv unless
+--report is given) and never changes Paperless or the confirmed list. Tagging flagged documents
+is a separate step: `pl-tags --add bad-ocr ID ...`.
 
-Heuristics, all language-agnostic and computed on the `content` field (a document is
-flagged when any fails; every reason is reported):
+Heuristics, all language-agnostic and computed on the `content` field (a document is flagged when
+any fails; every reason is reported):
   no_text           under 20 characters (plain-text documents are exempt)
-  broken_encoding   control characters above 2% of the text (a shifted embedded text layer;
-                    needs PAPERLESS_OCR_MODE=redo to fix)
-  unknown_words     at least 15 letter tokens and known_ratio below --min-known, where
-                    known_ratio is the share of tokens (3+ letters) that occur in at least
-                    3 other documents. Real words repeat across a library, OCR garbage doesn't.
+  broken_encoding   control characters above 2% of the text (a shifted embedded text layer; the
+                    page needs OCR from its image, not a re-read of the text layer)
+  unknown_words     at least 15 letter tokens and known_ratio below --min-known, where known_ratio
+                    is the share of tokens (3+ letters) that occur in at least 3 other documents.
+                    Real words repeat across a library, OCR garbage doesn't.
   thin_text         under 15 tokens and under 150 characters per page
   fragmented        over 60% of the letter-bearing words have 2 letters or fewer (20+ words):
                     spaced-out letters such as "Samue l Valen t i n", which known_ratio misses
-Two rules decide before any scoring:
-  - Inbox: documents carrying an inbox tag (Paperless's own is_inbox_tag flag) are skipped
-    entirely, scored and logged by nothing, because they are not categorised yet and their
-    metadata (such as the document type below) can't be trusted.
-  - Confirmed by type: a document of the type "Pyssel / Teckning" (children's drawings rarely
-    have meaningful text) counts as OK without analysis: the scan appends it to the confirmed
-    list. Add more types with --confirm-type.
 
-There is no other state. ocr-cache/confirmed_ok.csv (gitignored, local to this machine) is just a
-log of document ids, one per line, that we are happy with: in the file = confirmed OK, scans skip
-it; not in the file = not confirmed, scored every run even if it passes the heuristics. Nothing
-is recorded about passing documents, and nothing is invalidated automatically.
-Every run fetches all text, because known_ratio compares a document with the whole library.
+Two rules decide before any scoring, in this order:
+  - Inbox: a document carrying an inbox tag (Paperless's own is_inbox_tag flag) is skipped
+    entirely, because it is not categorised yet and its metadata can't be trusted.
+  - Confirmed: a document in the confirmed list, or of a confirmed type ("Pyssel / Teckning":
+    children's drawings rarely have meaningful text; add more with --confirm-type), is skipped.
 
-Credentials: PAPERLESS_URL and PAPERLESS_TOKEN, else the "Paperless" item in the "Agent"
-1Password vault (first URL = LAN address, password = API token), like pl-api.
+The only state is ocr-cache/confirmed_ok.csv next to this script (gitignored, local to this
+machine): document ids, one per line, that we are happy with. In the file = skipped by scans;
+not in the file = scored every run, even if it passes. Nothing is recorded about passing documents.
+Every scan fetches all text, because known_ratio compares a document with the whole library.
+
+Every command prints one JSON context on stdout (inputs, each step, counts and the ids the next
+step needs) and exits 0, or 1 with an `error` in the context saying which step failed and what had
+been done by then. Credentials: see paperless_lib.py.
 """
 import argparse
-import csv
 import collections
+import csv
 import json
-import os
 import re
-import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paperless_lib import Api, Context, Failure
 
 HERE = Path(__file__).resolve().parent
 CACHE = HERE / "ocr-cache"
@@ -61,92 +55,27 @@ FLAGGED = CACHE / "flagged.csv"
 
 DEFAULT_CONFIRM_TYPES = ["Pyssel / Teckning"]
 MIN_DF = 3
-PAGE_SIZE = 100
-CHUNK = 200
-FLAG_TAG = "bad-ocr"
 FIELDS = "id,title,content,page_count,mime_type,document_type,tags"
-
 TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.U)
 CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0d-\x1f]")
 
 
-# --- API ------------------------------------------------------------------
-
-def credentials():
-    url, token = os.environ.get("PAPERLESS_URL"), os.environ.get("PAPERLESS_TOKEN")
-    if url and token:
-        return url.rstrip("/"), token
-    wrapper = os.path.expanduser("~/tasks/op-service-account")
-    out = subprocess.run([wrapper, "item", "get", "Paperless", "--vault", "Agent",
-                          "--format", "json", "--reveal"], capture_output=True, text=True)
-    if out.returncode:
-        sys.exit(f"could not read the Paperless item from 1Password: {out.stderr.strip()[:200]}")
-    item = json.loads(out.stdout)
-    token = token or next(f["value"] for f in item["fields"] if f["id"] == "password")
-    url = url or item["urls"][0]["href"]
-    return url.rstrip("/"), token
+def load_confirmed():
+    if not CONFIRMED.exists():
+        return set()
+    return {int(x) for x in CONFIRMED.read_text().split() if x.isdigit()}
 
 
-URL, TOKEN = None, None
-
-
-def api(method, path, body=None):
-    req = urllib.request.Request(
-        URL + "/api" + path, method=method,
-        data=None if body is None else json.dumps(body).encode(),
-        headers={"Authorization": f"Token {TOKEN}", "Accept": "application/json; version=9",
-                 "Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=180) as r:
-            return json.loads(r.read() or "null")
-    except urllib.error.HTTPError as e:
-        sys.exit(f"{method} {path}: HTTP {e.code} {e.read()[:300]!r}")
-
-
-def fetch_documents():
-    docs, page = [], 1
-    while True:
-        qs = urllib.parse.urlencode({"page": page, "page_size": PAGE_SIZE, "ordering": "id", "fields": FIELDS})
-        data = api("GET", f"/documents/?{qs}")
-        docs += data["results"]
-        if not data.get("next"):
-            return docs
-        page += 1
-
-
-def inbox_tag_ids():
+def inbox_tag_ids(api):
     # the API ignores an is_inbox_tag filter, so read the flag on each tag
-    return {t["id"] for t in api("GET", "/tags/?page_size=1000")["results"] if t.get("is_inbox_tag")}
+    return {t["id"] for t in api.get("/tags/?page_size=1000")["results"] if t.get("is_inbox_tag")}
 
 
-def bulk_add_tag(ids, tag_id):
-    ids = sorted(ids)
-    for i in range(0, len(ids), CHUNK):
-        api("POST", "/documents/bulk_edit/", {"documents": ids[i:i + CHUNK], "method": "modify_tags",
-                                              "parameters": {"add_tags": [tag_id], "remove_tags": []}})
+def type_ids(api, names):
+    types = {t["name"].casefold(): t["id"] for t in api.get("/document_types/?page_size=1000")["results"]}
+    found = {n: types[n.casefold()] for n in names if n.casefold() in types}
+    return found, [n for n in names if n.casefold() not in types]
 
-
-def find_or_create_tag(name):
-    found = api("GET", "/tags/?" + urllib.parse.urlencode({"name__iexact": name}))["results"]
-    if found:
-        return found[0]["id"]
-    return api("POST", "/tags/", {"name": name, "color": "#d62728", "matching_algorithm": 0,
-                                  "is_inbox_tag": False})["id"]
-
-
-def type_ids(names):
-    types = {t["name"].casefold(): t["id"]
-             for t in api("GET", "/document_types/?page_size=1000")["results"]}
-    ids = set()
-    for n in names:
-        if n.casefold() in types:
-            ids.add(types[n.casefold()])
-        else:
-            print(f"warning: confirmed document type {n!r} does not exist (renamed?)", file=sys.stderr)
-    return ids
-
-
-# --- scoring --------------------------------------------------------------
 
 def score(doc, df, min_known):
     text = doc.get("content") or ""
@@ -176,143 +105,115 @@ def score(doc, df, min_known):
                 chars_per_page=round(n / pages), ctrl=round(ctrl, 4), frag=round(frag, 3))
 
 
-# --- state ----------------------------------------------------------------
-
-def load_confirmed():
-    if not CONFIRMED.exists():
-        return set()
-    return {int(line) for line in CONFIRMED.read_text().split() if line.strip().isdigit()}
-
-
-def append_confirmed(ids):
-    CACHE.mkdir(exist_ok=True)
-    with open(CONFIRMED, "a") as f:
-        f.writelines(f"{i}\n" for i in ids)
-
-
-# --- commands -------------------------------------------------------------
-
-def cmd_scan(args):
-    confirm_types = type_ids(DEFAULT_CONFIRM_TYPES + (args.confirm_type or []))
-    inbox_tags = inbox_tag_ids()
-    print(f"inbox tags: {sorted(inbox_tags)}", file=sys.stderr)
-    print("fetching documents ...", file=sys.stderr)
-    docs = fetch_documents()
+def cmd_scan(ctx, a):
+    api = Api()
+    types, unknown = type_ids(api, DEFAULT_CONFIRM_TYPES + (a.confirm_type or []))
+    ctx.step("confirm_types", resolved=list(types), unknown=unknown)
+    inbox_tags = inbox_tag_ids(api)
+    docs = api.documents("", FIELDS)
+    ctx.step("fetched", documents=len(docs), inbox_tag_ids=sorted(inbox_tags))
+    confirmed = load_confirmed()
     df = collections.Counter()
     for d in docs:
         df.update(set(t.lower() for t in TOKEN_RE.findall(d.get("content") or "")))
-    confirmed = load_confirmed()
 
-    inbox = skipped = 0
-    by_type = []
+    counts = {k: 0 for k in ('inbox', 'confirmed_in_list', 'confirmed_by_type', 'scored')}
     flagged = []
     for d in docs:
         if inbox_tags & set(d.get("tags") or []):
-            inbox += 1
-            continue
-        if d["id"] in confirmed:
-            skipped += 1
-            continue
-        if d.get("document_type") in confirm_types:
-            by_type.append(d["id"])
-            continue
-        s = score(d, df, args.min_known)
-        if s["reasons"]:
-            flagged.append({"id": d["id"], "title": d["title"], "reasons": "+".join(s["reasons"]),
-                            **{k: v for k, v in s.items() if k != "reasons"}})
-
-    append_confirmed(by_type)
-    scored = len(docs) - inbox - skipped - len(by_type)
-    print(f"\n{len(docs)} documents | {inbox} in the inbox (skipped) | {skipped} already confirmed OK | "
-          f"{len(by_type)} newly confirmed by type")
-    print(f"scored {scored}: {scored - len(flagged)} pass, {len(flagged)} flagged")
+            counts["inbox"] += 1
+        elif d["id"] in confirmed:
+            counts["confirmed_in_list"] += 1
+        elif d.get("document_type") in types.values():
+            counts["confirmed_by_type"] += 1
+        else:
+            s = score(d, df, a.min_known)
+            counts["scored"] += 1
+            if s["reasons"]:
+                flagged.append({"id": d["id"], "title": d["title"], "reasons": "+".join(s["reasons"]),
+                                **{k: v for k, v in s.items() if k != "reasons"}})
     by_reason = collections.Counter(r for f in flagged for r in f["reasons"].split("+"))
-    for r, c in by_reason.most_common():
-        print(f"  {r}: {c}")
+    ctx.step("scored", **counts, flagged=len(flagged))
 
-    if args.hand_over and flagged:
-        tid = find_or_create_tag(args.tag_name)
-        have = {d["id"] for d in docs if tid in (d.get("tags") or [])}
-        todo = [f["id"] for f in flagged if f["id"] not in have]
-        if todo:
-            bulk_add_tag(todo, tid)
-        append_confirmed([f["id"] for f in flagged])
-        print(f"handed over {len(flagged)} documents: tagged '{args.tag_name}' on {len(todo)}, logged as confirmed")
-    elif flagged:
-        print("nothing written to Paperless (use --hand-over to tag and log the flagged documents)")
-
-    report = Path(args.report) if args.report else FLAGGED
+    report = Path(a.report) if a.report else FLAGGED
     report.parent.mkdir(parents=True, exist_ok=True)
     cols = ["id", "title", "reasons", "known_ratio", "tokens", "chars", "chars_per_page", "ctrl", "frag"]
     with open(report, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(flagged)
-    print(f"flagged list: {report}")
+    ctx.set(documents=len(docs), **counts, passed=counts["scored"] - len(flagged), flagged=len(flagged),
+            by_reason=dict(by_reason), flagged_ids=[f["id"] for f in flagged], report=str(report),
+            unknown_confirm_types=unknown)
 
 
 def parse_ids(items):
     ids = set()
     for item in items:
         for part in item.split(","):
-            a, _, b = part.partition("-")
-            ids.update(range(int(a), int(b or a) + 1))
-    return sorted(ids)
+            lo, _, hi = part.partition("-")
+            ids.update(range(int(lo), int(hi or lo) + 1))
+    return ids
 
 
-def cmd_ok(args):
-    ids = set(parse_ids(args.ids or []))
-    if args.tag:
-        tag = api("GET", "/tags/?" + urllib.parse.urlencode({"name__iexact": args.tag}))["results"]
-        if not tag:
-            sys.exit(f"no tag named {args.tag!r}")
-        qs = urllib.parse.urlencode({"tags__id__all": tag[0]["id"], "page_size": 10000, "fields": "id"})
-        tagged = {d["id"] for d in api("GET", f"/documents/?{qs}")["results"]}
-        print(f"tag {args.tag!r}: {len(tagged)} documents")
-        ids |= tagged
+def cmd_ok(ctx, a):
+    api = Api()
+    ids = parse_ids(a.ids)
+    if a.tag:
+        tag = api.tag(a.tag)
+        found = {d["id"] for d in api.documents(f"tags__id__all={tag['id']}", "id")}
+        ctx.step("from_tag", tag=a.tag, documents=len(found))
+        ids |= found
+    if a.type:
+        types, unknown = type_ids(api, [a.type])
+        if unknown:
+            raise Failure(f"no document type named {a.type!r}")
+        found = {d["id"] for d in api.documents(f"document_type__id={types[a.type]}", "id")}
+        ctx.step("from_type", type=a.type, documents=len(found))
+        ids |= found
     if not ids:
-        sys.exit("give document ids, ranges, or --tag NAME")
-    ids = sorted(ids)
-    inbox_tags = inbox_tag_ids()
-    existing, in_inbox = set(), set()
-    for i in range(0, len(ids), 100):  # fail loudly on ids that don't exist
-        chunk = ids[i:i + 100]
-        qs = urllib.parse.urlencode({"id__in": ",".join(map(str, chunk)), "page_size": 100, "fields": "id,tags"})
-        for d in api("GET", f"/documents/?{qs}")["results"]:
+        raise Failure("no documents selected: give ids, --tag or --type")
+
+    inbox_tags, existing, in_inbox = inbox_tag_ids(api), set(), set()
+    ordered = sorted(ids)
+    for i in range(0, len(ordered), 100):
+        for d in api.documents("id__in=" + ",".join(map(str, ordered[i:i + 100])), "id,tags"):
             existing.add(d["id"])
             if inbox_tags & set(d.get("tags") or []):
                 in_inbox.add(d["id"])
-    missing = [i for i in ids if i not in existing]
+    missing = [i for i in ordered if i not in existing]
     if missing:
-        sys.exit(f"no such documents: {missing[:20]}")
-    if in_inbox:  # the inbox rule overrides everything: never confirm an uncategorised document
-        print(f"skipped {len(in_inbox)} documents in the inbox: {sorted(in_inbox)[:20]}")
+        raise Failure("some documents do not exist; nothing was written", missing=missing[:50])
     known = load_confirmed()
-    new = [i for i in ids if i not in known and i not in in_inbox]
-    append_confirmed(new)
-    print(f"logged {len(new)} document ids as confirmed")
+    new = [i for i in ordered if i not in known and i not in in_inbox]
+    ctx.step("checked", requested=len(ordered), new=len(new), already_confirmed=len([i for i in ordered if i in known]),
+             skipped_inbox=sorted(in_inbox))
+    if new and not a.dry_run:
+        CACHE.mkdir(exist_ok=True)
+        with open(CONFIRMED, "a") as f:
+            f.writelines(f"{i}\n" for i in new)
+    ctx.set(dry_run=a.dry_run, logged=[] if a.dry_run else new, would_log=new if a.dry_run else [],
+            skipped_inbox=sorted(in_inbox), list=str(CONFIRMED))
 
 
 def main():
-    global URL, TOKEN
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd")
-    sc = sub.add_parser("scan", help="score every document and list the bad ones (default)")
-    sc.add_argument("--hand-over", action="store_true",
-                    help="tag flagged documents and log them as confirmed (the only option that writes to Paperless)")
-    sc.add_argument("--tag-name", default=FLAG_TAG, help="tag used by --hand-over (default: %(default)s)")
-    sc.add_argument("--min-known", type=float, default=0.55, help="known-token ratio below which text is flagged")
-    sc.add_argument("--confirm-type", action="append", help="also treat this document type as OK (repeatable)")
+    sc = sub.add_parser("scan")
+    sc.add_argument("--confirm-type", action="append", help="also skip documents of this type (repeatable)")
+    sc.add_argument("--min-known", type=float, default=0.55, help="known-word ratio below which text is flagged")
     sc.add_argument("--report", help="write the flagged list here instead of ocr-cache/flagged.csv")
-    ok = sub.add_parser("ok", help="confirm documents as OK")
+    ok = sub.add_parser("ok")
     ok.add_argument("ids", nargs="*", help="ids or ranges, e.g. 35 53 57-80")
     ok.add_argument("--tag", help="also log every document currently carrying this tag")
+    ok.add_argument("--type", help="also log every document of this document type")
+    ok.add_argument("--dry-run", action="store_true", help="report what would be logged and write nothing")
     argv = sys.argv[1:]
     if not argv or argv[0].startswith("-"):
         argv = ["scan"] + argv
-    args = ap.parse_args(argv)
-    URL, TOKEN = credentials()
-    {"scan": cmd_scan, "ok": cmd_ok}[args.cmd](args)
+    a = ap.parse_args(argv)
+    fn = {"scan": cmd_scan, "ok": cmd_ok}[a.cmd]
+    Context(f"ocr-scan {a.cmd}", **{k: v for k, v in vars(a).items() if k != "cmd"}).run(lambda ctx: fn(ctx, a))
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ Describe how things work now. State a lesson as a fact plus how to apply it, wit
 
 A script makes at most one write. Reading and validating are harmless, so a script reads as much as it needs, from as many interfaces as it needs, and checks everything it can before it changes anything. Each write is a point where something can go wrong and leave a system half changed, so a workflow that needs several writes is several commands, and the agent composes them from the steps in the skill text and stays in control of the flow. Between two commands the agent sees the result of the first and decides what to do. Inside one script, a failure between two writes can leave the systems disagreeing with nothing to say so.
 
-A write that an interface forces into several calls (create a record, then fill it in) counts as one write, and the script reports exactly which calls completed.
+A write that an interface forces into several calls (create a record, then fill it in) counts as one write, and the script reports exactly which calls completed. The same write repeated across independent targets (the same tag change on many documents, the same field update on many items) also counts as one write, and the script reports the result per target. Scratch files a script produces for its own use (downloads, renders, backups, a report) are outputs, not writes to a system of record.
 
 Within its one write a script handles the realistic scenarios itself: pagination, empty results, state that already exists, retries that are safe.
 

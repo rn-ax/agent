@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
-"""Mechanical helpers for fixing a document's OCR text by reading its pages yourself.
+"""Helpers for fixing a document's OCR text by reading its pages yourself.
 
     ocr-pages prep ID [ID ...] [--dpi 130] [--no-trim]
-                                         back up the current text, download the original PDF, print
-                                         every page's size, render an overview PNG per page (trimmed
-                                         to the content when it sits in a corner of the page)
+        Back up the current text, download the original, render an overview PNG per page.
     ocr-pages strips ID PAGE [--dpi 200] [--height 700]
-                                         cut one page into full-width, overlapping strips for
-                                         reading small or blurry text; prints the PNG paths
+        Cut one page into full-width, overlapping strips for reading small or blurry text.
     ocr-pages crop ID PAGE X Y W H [--dpi 200]
-                                         crop a region; X Y W H are PIXELS at --dpi (points * dpi / 72)
-    ocr-pages rotate ID PAGE DEGREES     rotate the overview PNG of a page (90 = clockwise; macOS sips), for
-                                         scans stored sideways; prints the new path
-    ocr-pages put ID TEXTFILE [--dry-run] [--no-tags]
-                                         replace the document's content with the text in TEXTFILE,
-                                         verify it, then swap the tags: add claude-ocr, remove bad-ocr
-    ocr-pages done ID                    only the tag swap (for a document whose text is already fixed)
-    ocr-pages skip ID REASON             you could not fix it: leave bad-ocr on it and log why
+        Crop a region; X Y W H are PIXELS at --dpi (points * dpi / 72).
+    ocr-pages rotate ID PAGE DEGREES
+        Rotate a page's overview PNG (90 = clockwise; macOS sips) for scans stored sideways.
+    ocr-pages put ID TEXTFILE [--dry-run]
+        Replace the document's text with TEXTFILE and read it back. The only command that
+        writes to Paperless, and it writes only the text: change tags with pl-tags.
+    ocr-pages skip ID REASON
+        Log that you could not fix a document, so `next` stops offering it.
     ocr-pages next [--n 10] [--min-pages A] [--max-pages B]
-                                         documents still tagged bad-ocr and not skipped, fewest pages first
+        Documents still tagged bad-ocr and not skipped, fewest pages first.
 
-View the PNGs with an image viewer (Claude: the Read tool), transcribe into TEXTFILE, then `put`.
-Page sizes can differ within one PDF, so `strips` reads each page's own size. Files live in
-$CLAUDE_JOB_DIR/tmp/paperless-ocr/ID (else the system temp dir); the first backup of a
-document is never overwritten, so it always holds the text from before your first change.
-Skips are logged in $CLAUDE_JOB_DIR/tmp/paperless-ocr/skipped.jsonl so `next` doesn't offer
-them again. The tags are the record of what is done: claude-ocr and no bad-ocr. Uses pl-api for all API access. Needs pdfinfo and pdftoppm (poppler).
+View the PNGs with an image viewer (Claude: the Read tool), transcribe into a text file, then `put`.
+
+Every command prints one JSON context on stdout (inputs, each step done, the paths and ids the next
+step needs) and exits 0, or 1 with an `error` in the context saying which step failed and what had
+been done by then. Scratch files live in $CLAUDE_JOB_DIR/tmp/paperless-ocr/ID (else the system temp
+dir); the first backup of a document is never overwritten, so it holds the text from before any
+change. `skip` appends to skipped.jsonl in the parent folder. Needs pdfinfo and pdftoppm (poppler).
 """
 import argparse
 import glob
@@ -35,21 +33,12 @@ import re
 import subprocess
 import sys
 import tempfile
-import urllib.parse
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-PL_API = str(HERE / "pl-api")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paperless_lib import Api, Context, Failure
 
-
-def workdir(doc_id):
-    base = Path(os.environ["CLAUDE_JOB_DIR"]) / "tmp" if os.environ.get("CLAUDE_JOB_DIR") else Path(tempfile.gettempdir())
-    d = base / "paperless-ocr" / str(doc_id)
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-DONE_TAG, FLAG_TAG = "claude-ocr", "bad-ocr"
+FLAG_TAG = "bad-ocr"
 
 
 def state_dir():
@@ -59,54 +48,40 @@ def state_dir():
     return d
 
 
-def skipped_ids():
-    f = state_dir() / "skipped.jsonl"
-    return {json.loads(l)["id"] for l in f.read_text().splitlines() if l.strip()} if f.exists() else set()
+def workdir(doc_id):
+    d = state_dir() / str(doc_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
-def tag_id(name):
-    found = json.loads(api("GET", "/tags/?" + urllib.parse.urlencode({"name__iexact": name})))["results"]
-    if not found:
-        sys.exit(f"no tag named {name!r} in Paperless")
-    return found[0]["id"]
-
-
-def swap_tags(doc_id):
-    done, flag = tag_id(DONE_TAG), tag_id(FLAG_TAG)
-    api("POST", "/documents/bulk_edit/", "-d", json.dumps({"documents": [doc_id], "method": "modify_tags",
-        "parameters": {"add_tags": [done], "remove_tags": [flag]}}))
-    tags = json.loads(api("GET", f"/documents/{doc_id}/?fields=tags"))["tags"]
-    if done not in tags or flag in tags:
-        sys.exit(f"tag swap on #{doc_id} did not stick: tags are {tags}")
-    print(f"#{doc_id}: tagged {DONE_TAG}, removed {FLAG_TAG}")
-
-
-def api(*args):
-    r = subprocess.run([PL_API, *args], capture_output=True, text=True)
+def run(cmd, what):
+    r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode:
-        sys.exit(f"pl-api {' '.join(args[:2])}: {r.stderr.strip()[:300]}")
+        raise Failure(f"{what} failed", command=cmd[0], stderr=r.stderr.strip()[-300:])
     return r.stdout
 
 
 def page_sizes(pdf):
-    out = subprocess.run(["pdfinfo", "-f", "1", "-l", "9999", str(pdf)], capture_output=True, text=True).stdout
+    out = run(["pdfinfo", "-f", "1", "-l", "9999", str(pdf)], "pdfinfo")
     return {int(n): (float(w), float(h)) for n, w, h in re.findall(r"Page\s+(\d+) size:\s+([\d.]+) x ([\d.]+) pts", out)}
 
 
-def render(pdf, out_root, dpi, page, extra=()):
-    for old in glob.glob(f"{out_root}*.png"):
+def render(pdf, root, dpi, page, extra=()):
+    for old in glob.glob(f"{root}*.png"):
         os.remove(old)
-    subprocess.run(["pdftoppm", "-q", "-cropbox", "-r", str(dpi), "-png", "-f", str(page), "-l", str(page), *extra, str(pdf), str(out_root)],
-                   check=True)
-    return sorted(glob.glob(f"{out_root}*.png"))
+    run(["pdftoppm", "-q", "-cropbox", "-r", str(dpi), "-png", "-f", str(page), "-l", str(page), *extra, str(pdf), str(root)], "pdftoppm")
+    found = sorted(glob.glob(f"{root}*.png"))
+    if not found:
+        raise Failure("pdftoppm produced no image", page=page)
+    return found[0]
 
 
 def content_box(pdf, page, w_pt, h_pt, margin=18):
-    """Bounding box (points) of the non-white area, found on a 40 dpi greyscale render; None if the
-    content fills most of the page. Receipts and small notes sit in a corner of an A4 page, and
-    every image view costs by its pixel area, so reading the trimmed render is much cheaper."""
+    """Bounding box (points) of the non-white area from a 40 dpi greyscale render, ignoring specks
+    and edge lines; None when the content fills most of the page. Image views cost by pixel area, so
+    reading the trimmed render is much cheaper for a receipt in the corner of an A4 page."""
     root = Path(tempfile.mkdtemp()) / "probe"
-    subprocess.run(["pdftoppm", "-q", "-cropbox", "-r", "40", "-gray", "-f", str(page), "-l", str(page), str(pdf), str(root)], check=True)
+    run(["pdftoppm", "-q", "-cropbox", "-r", "40", "-gray", "-f", str(page), "-l", str(page), str(pdf), str(root)], "pdftoppm probe")
     data = Path(glob.glob(f"{root}*.pgm")[0]).read_bytes()
     m = re.match(rb"P5\s+(\d+)\s+(\d+)\s+255\s", data)
     w, h, px = int(m.group(1)), int(m.group(2)), data[m.end():]
@@ -115,161 +90,156 @@ def content_box(pdf, page, w_pt, h_pt, margin=18):
         row = px[y * w:(y + 1) * w]
         for x, v in enumerate(row):
             if v < 235:
-                xs.append(x); ys.append(y)
+                xs.append(x)
+                ys.append(y)
     if len(xs) < 20:
         return None
-    xs.sort(); ys.sort()
-    lo, hi = int(len(xs) * 0.003), int(len(xs) * 0.997) - 1   # ignore specks and edge lines
+    xs.sort()
+    ys.sort()
+    lo, hi = int(len(xs) * 0.003), int(len(xs) * 0.997) - 1
     k = 72 / 40
     x0, x1 = max(0, xs[lo] * k - margin), min(w_pt, (xs[hi] + 1) * k + margin)
     y0, y1 = max(0, ys[lo] * k - margin), min(h_pt, (ys[hi] + 1) * k + margin)
     return None if (x1 - x0) * (y1 - y0) > 0.8 * w_pt * h_pt else (x0, y0, x1, y1)
 
 
-def cmd_prep(a):
-    for doc_id in a.ids:
-        print(f"=== {doc_id}")
-        prep_one(a, doc_id)
-
-
-def prep_one(a, doc_id):
-    a = argparse.Namespace(**{**vars(a), "id": doc_id})
-    d = workdir(a.id)
-    backup = d / "backup.json"
-    if backup.exists():
-        print(f"backup already exists, keeping it: {backup}")
-    else:
-        backup.write_text(api("GET", f"/documents/{a.id}/"))
-        backup.chmod(0o600)
-        print(f"backed up current text: {backup}")
-    meta = json.loads(backup.read_text())
-    print(f"#{a.id} {meta.get('title')!r} | {meta.get('page_count')} pages | {meta.get('mime_type')} | "
-          f"{len(meta.get('content') or '')} chars of existing text")
-    pdf = d / "original.pdf"
-    api("GET", f"/documents/{a.id}/download/?original=true", "-o", str(pdf))
-    if meta.get("mime_type") != "application/pdf":
-        ext = {"image/jpeg": "jpg", "image/png": "png", "image/tiff": "tif", "text/plain": "txt"}.get(meta.get("mime_type"), "bin")
-        img = d / f"original.{ext}"
-        pdf.replace(img)
-        print(f"not a PDF ({meta.get('mime_type')}): the original is saved at {img}; view it directly")
-        return
-    sizes = page_sizes(pdf)
-    for p, (w, h) in sizes.items():
-        box = None if a.no_trim else content_box(pdf, p, w, h)
-        extra = () if not box else ("-x", str(int(box[0] * a.dpi / 72)), "-y", str(int(box[1] * a.dpi / 72)),
-                                    "-W", str(int((box[2] - box[0]) * a.dpi / 72)), "-H", str(int((box[3] - box[1]) * a.dpi / 72)))
-        paths = render(pdf, d / f"page{p}", a.dpi, p, extra)
-        print(f"page {p}: {w:.0f} x {h:.0f} pt" + (f", trimmed to content ({box[2]-box[0]:.0f} x {box[3]-box[1]:.0f} pt)" if box else "")
-              + f" -> {paths[0] if paths else 'render failed'}")
-    if len(set(sizes.values())) > 1:
-        print("note: pages differ in size; use `strips` per page")
-
-
-def cmd_strips(a):
-    d = workdir(a.id)
-    pdf = d / "original.pdf"
+def need_pdf(doc_id):
+    pdf = workdir(doc_id) / "original.pdf"
     if not pdf.exists():
-        sys.exit(f"run `ocr-pages prep {a.id}` first")
+        raise Failure(f"no downloaded original for #{doc_id}", hint=f"run: ocr-pages prep {doc_id}")
+    return pdf
+
+
+# --- commands ---------------------------------------------------------------
+
+def prep_one(api, a, doc_id):
+    d = workdir(doc_id)
+    out = {"id": doc_id}
+    try:
+        meta = api.get(f"/documents/{doc_id}/")
+        backup = d / "backup.json"
+        out["backup"] = {"path": str(backup), "kept_earlier_backup": backup.exists()}
+        if not backup.exists():
+            backup.write_text(json.dumps(meta, ensure_ascii=False))
+            backup.chmod(0o600)
+        out.update(title=meta["title"], pages=meta.get("page_count"), mime=meta["mime_type"],
+                   existing_text_chars=len(meta.get("content") or ""))
+        is_pdf = meta["mime_type"] == "application/pdf"
+        ext = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/tiff": "tif"}.get(meta["mime_type"], "bin")
+        original = d / f"original.{ext}"
+        size = api.download(f"/documents/{doc_id}/download/?original=true", original)
+        out["original"] = {"path": str(original), "bytes": size}
+        if not is_pdf:
+            out["note"] = "not a PDF: view the original directly"
+            return out
+        out["pages_rendered"] = []
+        for p, (w, h) in page_sizes(original).items():
+            box = None if a.no_trim else content_box(original, p, w, h)
+            extra = () if not box else ("-x", str(int(box[0] * a.dpi / 72)), "-y", str(int(box[1] * a.dpi / 72)),
+                                        "-W", str(int((box[2] - box[0]) * a.dpi / 72)), "-H", str(int((box[3] - box[1]) * a.dpi / 72)))
+            out["pages_rendered"].append({"page": p, "width_pt": round(w), "height_pt": round(h),
+                                          "trimmed_to_pt": None if not box else [round(box[2] - box[0]), round(box[3] - box[1])],
+                                          "png": render(original, d / f"page{p}", a.dpi, p, extra)})
+    except Failure as e:
+        out["error"] = {"message": str(e), **e.detail}
+    return out
+
+
+def cmd_prep(ctx, a):
+    api = Api()
+    docs = [prep_one(api, a, i) for i in a.ids]
+    ctx.set(docs=docs)
+    failed = [d["id"] for d in docs if "error" in d]
+    if failed:
+        raise Failure(f"{len(failed)} of {len(docs)} documents could not be prepared", failed=failed)
+
+
+def cmd_strips(ctx, a):
+    pdf = need_pdf(a.id)
     w_pt, h_pt = page_sizes(pdf)[a.page]
     w_px, h_px = int(w_pt * a.dpi / 72), int(h_pt * a.dpi / 72)
-    step, y, n = a.height - 60, 0, 0
+    ctx.step("page_size", width_px=w_px, height_px=h_px, dpi=a.dpi)
+    paths, y = [], 0
     while y < h_px:
-        n += 1
-        paths = render(pdf, d / f"strip{a.page}_{n}", a.dpi, a.page, ("-x", "0", "-y", str(y), "-W", str(w_px), "-H", str(min(a.height, h_px - y))))
-        print(paths[0])
-        y += step
-    print(f"{n} strips, page {a.page} is {w_px} x {h_px} px at {a.dpi} dpi")
+        paths.append(render(pdf, workdir(a.id) / f"strip{a.page}_{len(paths) + 1}", a.dpi, a.page,
+                            ("-x", "0", "-y", str(y), "-W", str(w_px), "-H", str(min(a.height, h_px - y)))))
+        y += a.height - 60
+    ctx.set(strips=paths)
 
 
-def cmd_crop(a):
-    d = workdir(a.id)
-    pdf = d / "original.pdf"
-    if not pdf.exists():
-        sys.exit(f"run `ocr-pages prep {a.id}` first")
-    paths = render(pdf, d / f"crop{a.page}_{a.x}_{a.y}", a.dpi, a.page, ("-x", str(a.x), "-y", str(a.y), "-W", str(a.w), "-H", str(a.h)))
-    print(paths[0])
+def cmd_crop(ctx, a):
+    pdf = need_pdf(a.id)
+    ctx.set(png=render(pdf, workdir(a.id) / f"crop{a.page}_{a.x}_{a.y}", a.dpi, a.page,
+                       ("-x", str(a.x), "-y", str(a.y), "-W", str(a.w), "-H", str(a.h))))
 
 
-def cmd_put(a):
-    d = workdir(a.id)
+def cmd_rotate(ctx, a):
+    src = [f for f in sorted(glob.glob(str(workdir(a.id) / f"page{a.page}-*.png"))) if "rot" not in Path(f).name]
+    if not src:
+        raise Failure(f"no overview image for page {a.page}", hint=f"run: ocr-pages prep {a.id}")
+    out = workdir(a.id) / f"page{a.page}-rot{a.degrees}.png"
+    run(["sips", "-r", str(a.degrees), src[0], "--out", str(out)], "sips")
+    ctx.set(png=str(out))
+
+
+def cmd_put(ctx, a):
     text = Path(a.textfile).read_text()
     if not text.strip():
-        sys.exit("refusing to write empty text")
-    backup = d / "backup.json"
+        raise Failure("the text file is empty; nothing was written", textfile=a.textfile)
+    api = Api()
+    meta = api.get(f"/documents/{a.id}/")
+    backup = workdir(a.id) / "backup.json"
     if not backup.exists():
-        backup.write_text(api("GET", f"/documents/{a.id}/"))
+        backup.write_text(json.dumps(meta, ensure_ascii=False))
         backup.chmod(0o600)
-    old = len(json.loads(backup.read_text()).get("content") or "")
-    print(f"#{a.id}: backup holds {old} chars, new text is {len(text)} chars")
+    ctx.step("checked", backup=str(backup), stored_chars=len(meta.get("content") or ""), new_chars=len(text))
     if a.dry_run:
-        print("dry run: nothing written")
+        ctx.set(dry_run=True, written=False)
         return
-    payload = d / "patch.json"
-    payload.write_text(json.dumps({"content": text}, ensure_ascii=False))
-    api("PATCH", f"/documents/{a.id}/", "-d", f"@{payload}")
-    now = json.loads(api("GET", f"/documents/{a.id}/")).get("content") or ""
-    if now.strip() != text.strip():
-        sys.exit("verification failed: stored content differs from what was sent")
-    print(f"written and verified ({len(now)} chars stored). The archive PDF is untouched.")
-    if not a.no_tags:
-        swap_tags(a.id)
+    api.request("PATCH", f"/documents/{a.id}/", {"content": text})
+    ctx.step("patched")
+    stored = api.get(f"/documents/{a.id}/").get("content") or ""
+    verified = stored.strip() == text.strip()
+    ctx.set(dry_run=False, written=True, verified=verified, stored_chars=len(stored))
+    if not verified:
+        raise Failure("the stored text differs from what was sent", sent_chars=len(text), stored_chars=len(stored))
 
 
-def cmd_rotate(a):
-    src = sorted(glob.glob(str(workdir(a.id) / f"page{a.page}-*.png")))
-    src = [f for f in src if "rot" not in Path(f).name]
-    if not src:
-        sys.exit(f"no overview for page {a.page}; run `ocr-pages prep {a.id}` first")
-    out = workdir(a.id) / f"page{a.page}-rot{a.degrees}.png"
-    subprocess.run(["sips", "-r", str(a.degrees), src[0], "--out", str(out)], check=True, capture_output=True)
-    print(out)
-
-
-def cmd_done(a):
-    swap_tags(a.id)
-
-
-def cmd_skip(a):
-    with open(state_dir() / "skipped.jsonl", "a") as f:
+def cmd_skip(ctx, a):
+    log = state_dir() / "skipped.jsonl"
+    with open(log, "a") as f:
         f.write(json.dumps({"id": a.id, "reason": a.reason}, ensure_ascii=False) + "\n")
-    print(f"#{a.id}: left tagged {FLAG_TAG}, reason logged")
+    ctx.set(logged=True, log=str(log))
 
 
-def cmd_next(a):
-    flag, skip, found, page = tag_id(FLAG_TAG), skipped_ids(), [], 1
-    while True:
-        qs = urllib.parse.urlencode({"tags__id__all": flag, "page_size": 100, "page": page, "fields": "id,title,page_count"})
-        r = json.loads(api("GET", f"/documents/?{qs}"))
-        found += [d for d in r["results"] if d["id"] not in skip and a.min_pages <= (d["page_count"] or 1) <= a.max_pages]
-        if not r.get("next"):
-            break
-        page += 1
-    found.sort(key=lambda d: ((d["page_count"] or 1), d["id"]))
-    print(f"{len(found)} documents still tagged {FLAG_TAG} (not skipped) in that page range")
-    for d in found[:a.n]:
-        print(f"{d['id']}\t{d['page_count']}p\t{d['title'][:70]}")
+def cmd_next(ctx, a):
+    api = Api()
+    log = state_dir() / "skipped.jsonl"
+    skipped = {json.loads(l)["id"] for l in log.read_text().splitlines() if l.strip()} if log.exists() else set()
+    flag = api.tag(FLAG_TAG)
+    docs = api.documents(f"tags__id__all={flag['id']}", "id,title,page_count")
+    pool = [d for d in docs if d["id"] not in skipped and a.min_pages <= (d["page_count"] or 1) <= a.max_pages]
+    pool.sort(key=lambda d: ((d["page_count"] or 1), d["id"]))
+    ctx.set(tagged=len(docs), skipped=len(skipped & {d["id"] for d in docs}), remaining=len(pool),
+            candidates=[{"id": d["id"], "pages": d["page_count"], "title": d["title"][:80]} for d in pool[:a.n]])
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("prep"); p.add_argument("ids", type=int, nargs="+"); p.add_argument("--dpi", type=int, default=130)
-    p.add_argument("--no-trim", action="store_true"); p.set_defaults(f=cmd_prep)
-    p = sub.add_parser("strips"); p.add_argument("id", type=int); p.add_argument("page", type=int)
-    p.add_argument("--dpi", type=int, default=200); p.add_argument("--height", type=int, default=700); p.set_defaults(f=cmd_strips)
+    p = sub.add_parser("prep"); p.add_argument("ids", type=int, nargs="+"); p.add_argument("--dpi", type=int, default=130); p.add_argument("--no-trim", action="store_true"); p.set_defaults(f=cmd_prep)
+    p = sub.add_parser("strips"); p.add_argument("id", type=int); p.add_argument("page", type=int); p.add_argument("--dpi", type=int, default=200); p.add_argument("--height", type=int, default=700); p.set_defaults(f=cmd_strips)
     p = sub.add_parser("crop"); p.add_argument("id", type=int); p.add_argument("page", type=int)
     for n in "xywh":
         p.add_argument(n, type=int)
     p.add_argument("--dpi", type=int, default=200); p.set_defaults(f=cmd_crop)
-    p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--no-tags", action="store_true"); p.set_defaults(f=cmd_put)
     p = sub.add_parser("rotate"); p.add_argument("id", type=int); p.add_argument("page", type=int); p.add_argument("degrees", type=int); p.set_defaults(f=cmd_rotate)
-    p = sub.add_parser("done"); p.add_argument("id", type=int); p.set_defaults(f=cmd_done)
+    p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true"); p.set_defaults(f=cmd_put)
     p = sub.add_parser("skip"); p.add_argument("id", type=int); p.add_argument("reason"); p.set_defaults(f=cmd_skip)
-    p = sub.add_parser("next"); p.add_argument("--n", type=int, default=10)
-    p.add_argument("--min-pages", type=int, default=1); p.add_argument("--max-pages", type=int, default=10**6); p.set_defaults(f=cmd_next)
+    p = sub.add_parser("next"); p.add_argument("--n", type=int, default=10); p.add_argument("--min-pages", type=int, default=1); p.add_argument("--max-pages", type=int, default=10**6); p.set_defaults(f=cmd_next)
     a = ap.parse_args()
-    a.f(a)
+    args = {k: v for k, v in vars(a).items() if k != "f"}
+    Context(f"ocr-pages {a.cmd}", **args).run(lambda ctx: a.f(ctx, a))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Add and remove tags on Paperless documents: one write, validated before it is made.
+
+    pl-tags [--add NAME]... [--remove NAME]... [--dry-run] ID [ID ...]
+
+The tags must exist and so must the documents; both are checked first and nothing is written if
+either check fails. The write is Paperless's own bulk edit (so the search index and the audit
+history stay correct), repeated in chunks of 200 documents. Afterwards each document is read back
+and the result is verified. Safe to run twice: documents that already have the wanted tags are
+reported as unchanged.
+
+Prints one JSON context on stdout: the tags and documents involved, which documents already
+matched, what was written and whether the read-back confirmed it. Exit 0 on success, 1 on failure
+(the context's `error` says which step failed and what had been written by then), 2 on bad usage.
+"""
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paperless_lib import Api, Context, Failure
+
+CHUNK = 200
+
+
+def parse_ids(items):
+    ids = set()
+    for item in items:
+        for part in item.split(","):
+            a, _, b = part.partition("-")
+            ids.update(range(int(a), int(b or a) + 1))
+    return sorted(ids)
+
+
+def work(ctx, a):
+    ids = parse_ids(a.ids)
+    ctx.set(documents=len(ids))
+    api = Api()
+    add = [api.tag(n) for n in a.add]
+    remove = [api.tag(n) for n in a.remove]
+    ctx.step("tags_resolved", add=[{"name": t["name"], "id": t["id"]} for t in add],
+             remove=[{"name": t["name"], "id": t["id"]} for t in remove])
+    add_ids, remove_ids = {t["id"] for t in add}, {t["id"] for t in remove}
+    if add_ids & remove_ids:
+        raise Failure("a tag is in both --add and --remove")
+
+    docs = {}
+    for i in range(0, len(ids), CHUNK):
+        chunk = ids[i:i + CHUNK]
+        for d in api.documents("id__in=" + ",".join(map(str, chunk)), "id,tags"):
+            docs[d["id"]] = set(d["tags"])
+    missing = [i for i in ids if i not in docs]
+    if missing:
+        raise Failure("some documents do not exist; nothing was written", missing=missing[:50])
+    todo = [i for i in ids if not add_ids <= docs[i] or docs[i] & remove_ids]
+    ctx.step("checked", already_correct=len(ids) - len(todo), to_change=len(todo))
+    if a.dry_run or not todo:
+        ctx.set(dry_run=a.dry_run, written=False, changed=0, would_change=todo if a.dry_run else [], unchanged=len(ids) - len(todo))
+        return
+
+    for i in range(0, len(todo), CHUNK):
+        chunk = todo[i:i + CHUNK]
+        api.request("POST", "/documents/bulk_edit/", {"documents": chunk, "method": "modify_tags",
+                    "parameters": {"add_tags": sorted(add_ids), "remove_tags": sorted(remove_ids)}})
+        ctx.step("bulk_edit", documents=len(chunk))
+
+    wrong = []
+    for i in range(0, len(todo), CHUNK):
+        for d in api.documents("id__in=" + ",".join(map(str, todo[i:i + CHUNK])), "id,tags"):
+            if not add_ids <= set(d["tags"]) or set(d["tags"]) & remove_ids:
+                wrong.append(d["id"])
+    ctx.step("verified", wrong=wrong[:50])
+    ctx.set(dry_run=False, written=True, changed=len(todo), unchanged=len(ids) - len(todo), verified=not wrong)
+    if wrong:
+        raise Failure("the read-back does not show the wanted tags on some documents", wrong=wrong[:50])
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--add", action="append", default=[], metavar="NAME")
+    ap.add_argument("--remove", action="append", default=[], metavar="NAME")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("ids", nargs="+", help="document ids or ranges, e.g. 35 53 57-80")
+    a = ap.parse_args()
+    if not (a.add or a.remove):
+        ap.error("give at least one --add or --remove")
+    ctx = Context("pl-tags", add=a.add, remove=a.remove, dry_run=a.dry_run, ids=a.ids)
+    ctx.run(lambda c: work(c, a))
+
+
+if __name__ == "__main__":
+    main()

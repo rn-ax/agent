@@ -12,13 +12,21 @@ Checks:
   purchase date   everything except gifts
   purchase price  everything except gifts and employer-owned items
 
-Usage: hb-needs-info [--dry-run]
+Usage: hb-needs-info [--dry-run] [--only ENTITY_ID ...]
+
+With --only the checks run for those items alone (entity ids, the UUIDs in item URLs) and nothing
+else in the inventory is read or changed; without it the whole inventory is synced. Each change
+is the same write (the tag and the `Missing Info` field on one item), repeated per item and
+reported per item.
+
+Prints one JSON context on stdout: the arguments, the counts, and every change as
+{id, name, action, missing}. Exit 0, or 1 with an `error` in the context saying what failed and
+which changes had been made by then.
 """
 import json, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 
 HB = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hb-api")
-DRY = "--dry-run" in sys.argv
 DEVICE_TAGS = {"Mobile Devices", "Storage", "Network", "Displays", "AV", "Cameras", "Gaming"}
 NO_SERIAL = {"Peripherals"}
 NO_MODEL = {"Furniture", "Board Games"}
@@ -26,7 +34,13 @@ NO_MODEL = {"Furniture", "Board Games"}
 
 def hb(method, path, body=None):
     cmd = [HB, method, path] + (["-d", json.dumps(body)] if body is not None else [])
-    return json.loads(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout)
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode or not r.stdout.strip():
+        raise RuntimeError(f"{method} {path} failed: {(r.stderr or r.stdout).strip()[:200]}")
+    out = json.loads(r.stdout)
+    if isinstance(out, dict) and out.get("error"):
+        raise RuntimeError(f"{method} {path} answered an error: {str(out)[:200]}")
+    return out
 
 
 def missing(e):
@@ -48,38 +62,63 @@ def missing(e):
 
 
 def main():
-    items, page = [], 1
-    while True:
-        r = hb("GET", f"/entities?pageSize=50&page={page}&includeArchived=true")
-        items += r["items"]
-        if len(items) >= r["total"]:
-            break
-        page += 1
-    with ThreadPoolExecutor(6) as ex:
-        inv = list(ex.map(lambda i: hb("GET", f"/entities/{i['id']}"), items))
-    tag = next((t for t in hb("GET", "/tags") if t["name"] == "Needs Info"), None) or hb("POST", "/tags", {"name": "Needs Info"})
+    args = sys.argv[1:]
+    dry = "--dry-run" in args
+    only = []
+    if "--only" in args:
+        only = [a for a in args[args.index("--only") + 1:] if not a.startswith("--")]
+        if not only:
+            print("--only needs at least one entity id", file=sys.stderr)
+            sys.exit(2)
+    ctx = {"script": "hb-needs-info", "args": {"dry_run": dry, "only": only}, "steps": [], "changes": []}
     counts = {"added": 0, "updated": 0, "removed": 0}
-    for e in inv:
-        if e["archived"] or e["entityType"]["isLocation"]:
-            want = None
+    code = 0
+    try:
+        if only:
+            inv = [hb("GET", f"/entities/{i}") for i in only]
         else:
-            want = missing(e)
-        has = any(t["name"] == "Needs Info" for t in e["tags"])
-        current = next((f["textValue"] for f in e["fields"] if f["name"] == "Missing Info"), None)
-        if want == current and has == bool(want):
-            continue
-        counts["removed" if not want else "updated" if has else "added"] += 1
-        if DRY:
-            continue
-        full = dict(e)
-        full["tagIds"] = [t["id"] for t in e["tags"] if t["name"] != "Needs Info"]
-        full["parentId"] = e["parent"]["id"]
-        full["fields"] = [f for f in e["fields"] if f["name"] != "Missing Info"]
-        if want:
-            full["tagIds"].append(tag["id"])
-            full["fields"].append({"type": "text", "name": "Missing Info", "textValue": want})
-        hb("PUT", f"/entities/{e['id']}", full)
-    print(json.dumps(counts))
+            items, page = [], 1
+            while True:
+                r = hb("GET", f"/entities?pageSize=50&page={page}&includeArchived=true")
+                items += r["items"]
+                if len(items) >= r["total"]:
+                    break
+                page += 1
+            with ThreadPoolExecutor(6) as ex:
+                inv = list(ex.map(lambda i: hb("GET", f"/entities/{i['id']}"), items))
+        ctx["steps"].append({"step": "read", "items": len(inv)})
+        tag = next((t for t in hb("GET", "/tags") if t["name"] == "Needs Info"), None)
+        if tag is None and not dry:
+            tag = hb("POST", "/tags", {"name": "Needs Info"})
+            ctx["steps"].append({"step": "created_tag", "name": "Needs Info"})
+        for e in inv:
+            want = None if (e["archived"] or e["entityType"]["isLocation"]) else missing(e)
+            has = any(t["name"] == "Needs Info" for t in e["tags"])
+            current = next((f["textValue"] for f in e["fields"] if f["name"] == "Missing Info"), None)
+            if want == current and has == bool(want):
+                continue
+            action = "removed" if not want else "updated" if has else "added"
+            counts[action] += 1
+            ctx["changes"].append({"id": e["id"], "name": e["name"], "action": action, "missing": want})
+            if dry:
+                continue
+            full = dict(e)
+            full["tagIds"] = [t["id"] for t in e["tags"] if t["name"] != "Needs Info"]
+            full["parentId"] = e["parent"]["id"]
+            full["fields"] = [f for f in e["fields"] if f["name"] != "Missing Info"]
+            if want:
+                full["tagIds"].append(tag["id"])
+                full["fields"].append({"type": "text", "name": "Missing Info", "textValue": want})
+            hb("PUT", f"/entities/{e['id']}", full)
+        ctx["steps"].append({"step": "synced", "dry_run": dry})
+    except Exception as e:
+        ctx["error"] = {"after_step": ctx["steps"][-1]["step"] if ctx["steps"] else "start",
+                        "type": type(e).__name__, "message": str(e), "changes_made_before_failure": [c for c in ctx["changes"]] if not dry else []}
+        code = 1
+    finally:
+        ctx["counts"] = counts
+        print(json.dumps(ctx, ensure_ascii=False))
+    sys.exit(code)
 
 
 main()
