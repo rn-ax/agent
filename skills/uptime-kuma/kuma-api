@@ -1,23 +1,70 @@
-#!/usr/bin/env bash
-# Authenticated Uptime Kuma HTTP wrapper, using the API key in the "Uptime
-# Kuma" item of the "Agent" 1Password vault (`password` field). The key
-# authenticates Kuma's HTTP endpoints that accept API keys — `/metrics`
-# (Prometheus text: monitor status, response time, certificate expiry) — via
-# basic auth with an empty username. Base URL is the item's first URL when it
-# has one, otherwise the LAN address.
-# Usage: kuma-api <path> [curl-args...]
-#   kuma-api /metrics
-#   kuma-api /metrics | grep '^monitor_status'
-#
-# <path> is relative to the base URL and must start with /.
-set -euo pipefail
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["uptime-kuma-api-v2"]
+# ///
+"""Uptime Kuma API wrapper, logged in as the user from the "Uptime Kuma" item
+of the "Agent" 1Password vault (`username` and `password`, base URL from the
+item's first URL).
 
-path="${1:?Usage: kuma-api <path> [curl-args...]}"
-shift
+Usage: kuma-api <method> [json-args]
+  kuma-api status                      one line per monitor: state, type, name, message
+  kuma-api get_monitors
+  kuma-api get_monitor '{"id_": 5}'
+  kuma-api add_monitor '{"type": "http", "name": "Foo", "url": "http://truenas.lan:1234/", "interval": 60}'
+  kuma-api edit_monitor '{"id_": 5, "maxretries": 3}'
+  kuma-api pause_monitor '{"id_": 5}'
+  kuma-api get_notifications
 
-item_json="$(~/tasks/op-service-account item get "Uptime Kuma" --vault Agent --format json --reveal)"
-base_url="$(jq -r '.urls[0].href // "http://truenas.lan:31050"' <<<"$item_json")"
-base_url="${base_url%/}"
-key="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+<method> is any public method of the `uptime-kuma-api-v2` library's
+UptimeKumaApi, called with the JSON object as keyword arguments; a `type`
+string is converted to the library's MonitorType / NotificationType enum.
+The result is printed as JSON.
+"""
 
-curl -sS -u ":${key}" "${base_url}${path}" "$@"
+import json
+import subprocess
+import sys
+import warnings
+
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+
+from uptime_kuma_api import MonitorType, NotificationType, UptimeKumaApi
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    method = sys.argv[1]
+    kwargs = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
+
+    item = json.loads(
+        subprocess.check_output(
+            ["/Users/samuel/tasks/op-service-account", "item", "get", "Uptime Kuma",
+             "--vault", "Agent", "--format", "json", "--reveal"]
+        )
+    )
+    fields = {f["id"]: f.get("value", "") for f in item["fields"]}
+    base_url = item["urls"][0]["href"].rstrip("/")
+
+    api = UptimeKumaApi(base_url, timeout=60)
+    try:
+        api.login(fields["username"], fields["password"])
+        if method == "status":
+            beats = {m["id"]: api.get_monitor_beats(m["id"], 1) for m in api.get_monitors()}
+            for m in sorted(api.get_monitors(), key=lambda m: m["name"].lower()):
+                last = beats[m["id"]][-1] if beats[m["id"]] else None
+                state = str(last["status"]).split(".")[-1] if last else "NONE"
+                msg = (last or {}).get("msg", "")[:80]
+                print(f"{state:8}{str(m['type']).split('.')[-1]:12}{m['name']:24}{msg}")
+            return
+        if "type" in kwargs:
+            enum = NotificationType if method.endswith("notification") else MonitorType
+            kwargs["type"] = enum(kwargs["type"])
+        print(json.dumps(getattr(api, method)(**kwargs), default=str, indent=2))
+    finally:
+        api.disconnect()
+
+
+if __name__ == "__main__":
+    main()

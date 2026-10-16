@@ -21,31 +21,26 @@ The container runs as root with all capabilities dropped except `NET_RAW`. Root 
 
 The Docker socket is not mounted: it gives the container root-equivalent control of the host's Docker. Container-state checks go through a push monitor (see "Apps with no network surface").
 
-The "Uptime Kuma" item of the "Agent" 1Password vault holds an API key in `password`. The user's own login (`samuel`) is held by the user and not available to agents.
+The "Uptime Kuma" item of the "Agent" 1Password vault holds the login (`username`, `password`), the LAN and public (`https://kuma.rn.ax/`) URLs, and an `api key` field.
 
-## Reading status: `kuma-api`
+## Driving it: `kuma-api`
 
-`kuma-api <path>` (this skill's directory) calls Kuma over HTTP with the API key from the 1Password item, the same way `wm-api` does for Windmill. The key opens `/metrics`, the Prometheus text endpoint, which carries every monitor's state:
-
-```sh
-kuma-api /metrics | grep '^monitor_status'
-```
-
-Each `monitor_status{monitor_name="…",monitor_type="…",…}` line ends in `1` (up), `0` (down), `2` (pending) or `3` (maintenance). `monitor_response_time` and `monitor_cert_days_remaining` sit alongside. API keys authenticate only these HTTP endpoints; the socket.io API below needs the user's login.
-
-## Changing monitors
-
-Changes go through Kuma's socket.io API, which has no REST equivalent and authenticates with the user's login rather than the API key. A task that adds or edits monitors therefore needs the user to supply the login for that run. Use the `uptime-kuma-api-v2` Python library (it targets Kuma 2.x):
+`kuma-api <method> [json-args]` (this skill's directory) logs in as the user from the "Uptime Kuma" 1Password item (`username`, `password`, and the first URL as base) and calls one method of the `uptime-kuma-api-v2` Python library, with the JSON object as keyword arguments:
 
 ```sh
-uv run --no-project --with uptime-kuma-api-v2 python -I script.py
+kuma-api status                                   # one line per monitor: state, type, name, last message
+kuma-api get_monitors
+kuma-api add_monitor '{"type": "http", "name": "Foo", "url": "http://truenas.lan:1234/", "interval": 60, "retryInterval": 60, "maxretries": 3}'
+kuma-api edit_monitor '{"id_": 5, "maxretries": 3}'
 ```
 
-with `api = UptimeKumaApi('http://truenas.lan:31050'); api.login(user, password)`; never print the password. Behaviours worth knowing:
-- `add_monitor(type=MonitorType.…, name=…, interval=60, retryInterval=60, maxretries=3, …)`; `get_monitors()` lists them; `get_monitor_beats(id, hours)` returns recent heartbeats (the last entry's `status` and `msg` say why a monitor is down).
-- A `JSON_QUERY` monitor needs `jsonPathOperator='=='` next to `jsonPath` and `expectedValue`; without it every check fails with "Invalid condition null".
-- A `PUSH` monitor gets its token from the server on creation; read it back with `get_monitor(id)['pushToken']`. The push URL is `/api/push/<token>?status=up`.
-- The library has no wrapper for every field; `api._call('editMonitor', monitor_dict)` sends the raw socket event.
+Kuma's API is socket.io only (no REST), and this library is the client; its method names and fields are what the wrapper accepts. A `type` string converts to the library's `MonitorType` (`NotificationType` for `*_notification` methods). Behaviours worth knowing:
+- `get_monitor_beats(id_, hours)` returns recent heartbeats; the last entry's `status` and `msg` say why a monitor is down.
+- A `json-query` monitor needs `"jsonPathOperator": "=="` next to `jsonPath` and `expectedValue`; without it every check fails with "Invalid condition null".
+- A `push` monitor gets its token from the server on creation; read it back with `get_monitor` (`pushToken`). The push URL is `/api/push/<token>?status=up`.
+- A field the library has no keyword for can still be set through the raw socket event from a script: `api._call('editMonitor', monitor_dict)`.
+
+The item also carries an `api key` field. Kuma API keys authenticate only the Prometheus `/metrics` endpoint (basic auth, empty username), which `kuma-api` does not use.
 
 ## Monitor conventions
 
