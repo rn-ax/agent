@@ -25,7 +25,11 @@ Describe how things work now. State a lesson as a fact plus how to apply it, wit
 
 ## Scripts
 
-A script performs one operation against one interface: one API, one system, or one file. Within that operation it handles the realistic scenarios itself: pagination, empty results, state that already exists, retries that are safe. An operation can have several internal steps when they belong together, such as writing a value and reading it back to confirm. A workflow that spans several operations or several interfaces is composed by the agent from the steps in the skill text, so the agent stays in control of the flow. Every extra step and every extra interface adds error cases (a step that partly completed, an API that changed, a state the script didn't expect), and the number of cases that can go unhandled grows with each one. An unhandled case inside a script fails silently or leaves things half done, while the same case between two separate commands is visible to the agent, which can decide what to do.
+A script makes at most one write. Reading and validating are harmless, so a script reads as much as it needs, from as many interfaces as it needs, and checks everything it can before it changes anything. Each write is a point where something can go wrong and leave a system half changed, so a workflow that needs several writes is several commands, and the agent composes them from the steps in the skill text and stays in control of the flow. Between two commands the agent sees the result of the first and decides what to do. Inside one script, a failure between two writes can leave the systems disagreeing with nothing to say so.
+
+A write that an interface forces into several calls (create a record, then fill it in) counts as one write, and the script reports exactly which calls completed.
+
+Within its one write a script handles the realistic scenarios itself: pagination, empty results, state that already exists, retries that are safe.
 
 ## Report context
 
@@ -57,7 +61,7 @@ Progress for a human goes to stderr. Stdout holds only the context.
 
 ## Script rules
 
-- **Writes are explicit and checked.** A script that changes something takes explicit targets, offers `--dry-run` or defaults to a report, is safe to run twice, reads back what it wrote and records that in the context, and refuses input that is empty or malformed.
+- **Writes are explicit and checked.** A script that changes something validates its input first (refusing anything empty or malformed), takes explicit targets, offers `--dry-run` or defaults to a report, is safe to run twice, and reads back what it wrote and records that in the context.
 - **Inputs are explicit.** Ids, files and flags come from arguments or stdin, so the context of one script gives the next its inputs. There are no interactive prompts and no inferred targets.
 - **Scope is what the arguments name.** A script that can sweep a whole system takes a filter such as `--only`, so one task never edits unrelated records.
 - **Keep state minimal and visible.** If a script keeps a local file, the docstring names it, and it is gitignored when it belongs to one machine.
@@ -66,4 +70,4 @@ Progress for a human goes to stderr. Stdout holds only the context.
 
 ## Flows
 
-The sequence of a workflow lives in the skill text: the steps in order, which script performs each, what to look at in the context it prints, and what to do when a step fails. A new workflow starts as a list of steps in `SKILL.md`. A script is added for a single operation that is mechanical and repeated, and it stays within one interface.
+The sequence of a workflow lives in the skill text: the steps in order, which script performs each, what to look at in the context it prints, and what to do when a step fails. A new workflow starts as a list of steps in `SKILL.md`. A script is added for a single write (or a read) that is mechanical and repeated.
