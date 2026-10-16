@@ -17,12 +17,14 @@ This is the index for everything running across this user's home infrastructure.
 | Windmill | Automation/agent layer (scripts, flows, AI copilot) | app on TrueNAS, `windmill.rn.ax` (public, Access-gated) / `truenas.lan:30155` (LAN, for API) | `windmill` |
 | Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `https://home.rn.ax` (Cloudflare Access), LAN `truenas.lan:30149` | `homebox` |
 | Beszel | Monitoring: host and per-container CPU/memory/disk/network history for TrueNAS and both Contabo boxes | hub app on TrueNAS, `truenas.lan:30333` (LAN only); agents on TrueNAS and both Contabo boxes | `beszel` |
+| Uptime Kuma | Uptime monitoring and alerting for every app on TrueNAS | app on TrueNAS, `truenas.lan:31050` (LAN only) | `uptime-kuma` |
+| Healthchecks.io | External watchdog for the things Kuma can't see from TrueNAS: TrueNAS, Kuma itself, both Contabo boxes, Home Assistant; Pushover alerts | hosted, healthchecks.io | `healthchecks` |
 | Backups | Backup design and status: TrueNAS data, Macs, the M1 Mac mini backup server with its drive enclosure, offsite copies | `server.lan` (planned target), TrueNAS `Storage` pool (source) | `backup` |
 | Shelly devices | Shelly relays and other Shelly gear (the office 2PM Gen4 on Zigbee through ZHA): pairing, profiles, firmware, wall-switch inputs | paired to Home Assistant, Wi-Fi on the IoT network | `shelly` |
 | Fastmail | Personal email (`rn.ax`), calendar, contacts; read-only MCP token for agents | hosted, `api.fastmail.com/mcp` | `email` |
 | Home Assistant | Smart home | Raspberry Pi 5, `192.168.3.71:8123` (isolated IoT VLAN) — also `home.rutinerad.com` via Nabu Casa | `home-assistant` |
 | Cloudflare | Tunnel + Access fronting most `*.rn.ax` apps on TrueNAS; Email Routing on the separate `rutinerad.com` domain | account "rutinerad" | `cloudflare` |
-| monocoque | Separate Django monorepo, several custom apps (`newshound`, etc.), deployed to TrueNAS too | repo at `~/Projects/monocoque` | its own repo docs, not a home-infra skill |
+| monocoque | Separate Django monorepo, several custom apps, deployed to TrueNAS too | repo at `~/Projects/monocoque` | its own repo docs, not a home-infra skill |
 | Contabo hosts | Two VPS boxes running self-hosted GitHub/Gitea Actions runners + a few small apps; reach TrueNAS directly over Cloudflare WARP | `contabo-1`/`contabo-2`, IaC at `~/Projects/rn-infra` | `contabo-hosts` |
 | agent-tasks (`atask`) | Cross-session task queue, not a home system but referenced constantly when scoping multi-session work | `~/Projects/agent-tasks` | `todo` skill |
 

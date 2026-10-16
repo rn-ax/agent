@@ -11,9 +11,18 @@ This is the accumulating knowledge base for the user's Healthchecks.io setup. Fi
 
 ## Purpose
 
-Healthchecks.io is the external watchdog for all of the user's systems: it lives outside the home network and the Contabo boxes, so it keeps working when everything else is down. Each system pings its own check on a schedule, and a missed ping notifies the user's phone through Pushover so they can react. A check going down therefore means the system stopped pinging (or lost its path to the internet), and that notification is the user's first signal that something is wrong.
+Healthchecks.io is the external watchdog: it lives outside the home network and the Contabo boxes, so it keeps working when everything else is down. It watches only the things that Uptime Kuma (running on TrueNAS, see the `uptime-kuma` skill) cannot watch from where it runs:
 
-**Coverage rule:** every individual system or component the user maintains that is expected to stay up has its own check — servers, apps, tunnels, the Home Assistant instance. Personal computers and other devices that are legitimately off or away are outside it. A new always-on system or component gets its check in the project matching where it runs, as part of setting it up.
+- **TrueNAS** — a TrueNAS cron job pings its check every 5 minutes.
+- **Uptime Kuma** — a TrueNAS cron job probes Kuma and pings the "Uptime Kuma" check only when Kuma answers.
+- **Contabo 1 and Contabo 2** — each box pings its own check.
+- **Home Assistant** — the `healthchecksio` integration pings its check.
+
+Each system pings on a schedule, and a missed ping notifies the user's phone through Pushover so they can react. A check going down means that system stopped pinging (or lost its path to the internet), and the notification is the user's first signal that something is wrong.
+
+**Coverage rule:** every individual system the user maintains that is expected to stay up is watched by one of the two. Systems outside TrueNAS and the watchers themselves get a Healthchecks.io check; every app on TrueNAS gets an Uptime Kuma monitor. Personal computers and other devices that are legitimately off or away are outside the rule. A new always-on system gets its check or monitor as part of setting it up.
+
+The checks stay few on purpose (the account has a fixed check allowance), which is why apps are Kuma's job.
 
 ## Credentials
 
@@ -39,3 +48,11 @@ The `healthchecksio` custom integration (`rn-ax/ha-healthchecksio`) does two job
 - **The key is stored in the config entry** (`api_key`), a copy of the 1Password value. After a rotation the entry has to be recreated with the new key: remove it with `DELETE /api/config/config_entries/entry/<id>`, then start a `healthchecksio` flow (`api_key`, `check`, `self_hosted: false`) over the config-entries REST API. The installed flow has no reconfigure step.
 - **An invalid key silences the ping.** Healthchecks.io answers `401 {"error": "wrong api key"}`, the integration receives a JSON body without `checks`, creates zero sensors, and a coordinator with no listeners stops polling — so the ping stops too, while the entry still shows `loaded` and nothing is logged. A check that goes down while its entry reads `loaded` and its sensors read `unavailable` is this case; test the stored key against `/api/v1/checks/` from the Pi.
 - **Sensors cover one project per entry.** The key decides which project's checks become sensors, so the TrueNAS and Contabo checks need their own entries with their own section's key.
+
+## Migration in progress
+
+Apps moved to Uptime Kuma, and the three projects (`Contabo`, `TrueNAS`, `Home`) are to become one. Until that is done:
+- The old per-app checks (the eleven monocoque apps, Radarr, Sonarr, Prowlarr) and the TrueNAS cron jobs "Radarr/Sonarr/Prowlarr healthcheck" still exist and are superseded by Kuma monitors. The monocoque `healthcheck_ping` command and `healthcheck_id` registry fields go with them.
+- Healthchecks.io cannot move a check between projects, so consolidating means recreating the Contabo and Home Assistant checks in one project and repointing their pingers (the Contabo boxes, and the Home Assistant `healthchecksio` entry, which then lists every check as a sensor).
+
+Delete this section once both are done.
