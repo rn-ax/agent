@@ -25,12 +25,40 @@ Describe how things work now. State a lesson as a fact plus how to apply it, wit
 
 ## Scripts
 
-A script performs one operation against one interface: one API, one system, or one file. An operation can have several internal steps when they belong together, such as writing a value and reading it back to confirm. A workflow that spans several operations or several interfaces is composed by the agent from the steps in the skill text. Every extra step and every extra interface adds error cases (a step that partly completed, an API that changed, a state the script didn't expect), and the number of cases that can go unhandled grows with each one. An unhandled case inside a script fails silently or leaves things half done, while the same case between two separate commands is visible to the agent, which can decide what to do.
+A script performs one operation against one interface: one API, one system, or one file. Within that operation it handles the realistic scenarios itself: pagination, empty results, state that already exists, retries that are safe. An operation can have several internal steps when they belong together, such as writing a value and reading it back to confirm. A workflow that spans several operations or several interfaces is composed by the agent from the steps in the skill text, so the agent stays in control of the flow. Every extra step and every extra interface adds error cases (a step that partly completed, an API that changed, a state the script didn't expect), and the number of cases that can go unhandled grows with each one. An unhandled case inside a script fails silently or leaves things half done, while the same case between two separate commands is visible to the agent, which can decide what to do.
 
-- **Output drives the next step.** Print what the agent needs to proceed: the ids, paths, counts or JSON fields the next command takes as input. Normal output goes to stdout as one value (a JSON document, or one record per line), progress and diagnostics go to stderr.
-- **Errors say what went wrong.** Exit non-zero and name the failing input, the cause, and the state left behind ("nothing was written" or "3 of 10 written, ids …"). Never swallow an error or fall back silently.
-- **Writes are explicit and checked.** A script that changes something takes explicit targets, offers `--dry-run` or defaults to a report, is safe to run twice, reads back what it wrote and says so, and refuses input that is empty or malformed.
-- **Inputs are explicit.** Ids, files and flags come from arguments or stdin, so the output of one script can feed the next. There are no interactive prompts and no inferred targets.
+## Report context
+
+Every script that does more than print one value builds a context object when it starts, fills it in as it works, and prints it as JSON when it exits, whether it succeeded or not.
+
+- **At start** the context records the script name and its resolved inputs (ids, paths, URLs, flags, never secrets) and an empty list of steps.
+- **While running** each completed action is added as soon as it is done, together with everything the next step might need: ids read or written, counts, the paths of files produced, values the API returned. Bulky data (text, images, page dumps) goes to a file and the context holds its path.
+- **At exit** the context is printed to stdout as a single JSON document. On failure the same context carries an `error` (the step that failed, the exception type, the message, and any detail the interface returned), so it shows exactly what was done before the failure and what state was left behind. The exit code is 0 for success, 1 when the operation failed and 2 for a usage error.
+- **Every path prints it.** Use `try`/`except`/`finally` in Python, `try`/`finally` in Node, or an `EXIT` trap in shell, so an unexpected exception cannot skip the report.
+
+```python
+import json, sys
+
+ctx = {"script": "example", "args": {"id": 42}, "steps": []}
+def step(name, **data): ctx["steps"].append({"step": name, **data})
+code = 0
+try:
+    step("read", chars=1200)
+    step("write", verified=True)
+except Exception as e:
+    ctx["error"] = {"step": ctx["steps"][-1]["step"] if ctx["steps"] else "start", "type": type(e).__name__, "message": str(e)}
+    code = 1
+finally:
+    print(json.dumps(ctx, ensure_ascii=False))
+sys.exit(code)
+```
+
+Progress for a human goes to stderr. Stdout holds only the context.
+
+## Script rules
+
+- **Writes are explicit and checked.** A script that changes something takes explicit targets, offers `--dry-run` or defaults to a report, is safe to run twice, reads back what it wrote and records that in the context, and refuses input that is empty or malformed.
+- **Inputs are explicit.** Ids, files and flags come from arguments or stdin, so the context of one script gives the next its inputs. There are no interactive prompts and no inferred targets.
 - **Scope is what the arguments name.** A script that can sweep a whole system takes a filter such as `--only`, so one task never edits unrelated records.
 - **Keep state minimal and visible.** If a script keeps a local file, the docstring names it, and it is gitignored when it belongs to one machine.
 - **API wrappers stay thin.** `<system>-api <method> <path> [curl args]` adds authentication and the base URL and nothing else, so every request is an agent decision.
@@ -38,4 +66,4 @@ A script performs one operation against one interface: one API, one system, or o
 
 ## Flows
 
-The sequence of a workflow lives in the skill text: the steps in order, which script performs each, what to look at in its output, and what to do when a step fails. A new workflow starts as a list of steps in `SKILL.md`. A script is added for a single operation that is mechanical and repeated, and it stays within one interface.
+The sequence of a workflow lives in the skill text: the steps in order, which script performs each, what to look at in the context it prints, and what to do when a step fails. A new workflow starts as a list of steps in `SKILL.md`. A script is added for a single operation that is mechanical and repeated, and it stays within one interface.
