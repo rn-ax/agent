@@ -17,6 +17,7 @@ This is the index for everything running across this user's home infrastructure.
 | Windmill | Automation/agent layer (scripts, flows, AI copilot) | app on TrueNAS, `windmill.rn.ax` (public, Access-gated) / `truenas.lan:30155` (LAN, for API) | `windmill` |
 | Homebox | Home inventory — specs, links, PDF manuals, warranty for everything owned | app on TrueNAS, `https://home.rn.ax` (Cloudflare Access), LAN `truenas.lan:30149` | `homebox` |
 | Beszel | Monitoring: host and per-container CPU/memory/disk/network history for TrueNAS and both Contabo boxes | hub app on TrueNAS, `truenas.lan:30333` (LAN only); agents on TrueNAS and both Contabo boxes | `beszel` |
+| Pushover | The user's main phone-notification channel (Uptime Kuma and Healthchecks.io alert through it); `pushover-send` wrapper | hosted, pushover.net | `pushover` |
 | Uptime Kuma | Uptime monitoring and alerting for every app on TrueNAS | app on TrueNAS, `truenas.lan:31050` (LAN only) | `uptime-kuma` |
 | Healthchecks.io | External watchdog for the things Kuma can't see from TrueNAS: TrueNAS, Kuma itself, both Contabo boxes, Home Assistant; Pushover alerts | hosted, healthchecks.io | `healthchecks` |
 | Backups | Backup design and status: TrueNAS data, Macs, the M1 Mac mini backup server with its drive enclosure, offsite copies | `server.lan` (planned target), TrueNAS `Storage` pool (source) | `backup` |

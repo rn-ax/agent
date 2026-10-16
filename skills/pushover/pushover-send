@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Send a Pushover notification to the user's devices, using the "Pushover"
+# item of the "Agent" 1Password vault: `username` is the User Key, and each
+# application token sits in a field named after the sender (e.g. "Uptime Kuma").
+# Credentials go to curl over stdin, never on the command line.
+# Usage: pushover-send -a <app> [-t <title>] [-p <priority>] [-u <url>] <message>
+#   pushover-send -a "Uptime Kuma" -t "Test" -p -2 "hello"
+#
+# -a  application name = the item field holding that app's token (required)
+# -p  priority: -2 silent (shows in the app only), -1 quiet, 0 normal, 1 high
+#     (bypasses quiet hours), 2 emergency (repeats until acknowledged; needs
+#     retry/expire, which this wrapper sets to 60s/1h)
+set -euo pipefail
+
+app="" title="" priority="" url=""
+while getopts "a:t:p:u:" opt; do
+	case "$opt" in
+	a) app="$OPTARG" ;;
+	t) title="$OPTARG" ;;
+	p) priority="$OPTARG" ;;
+	u) url="$OPTARG" ;;
+	*) sed -n '2,13p' "$0" >&2; exit 2 ;;
+	esac
+done
+shift $((OPTIND - 1))
+message="${1:?Usage: pushover-send -a <app> [-t title] [-p priority] [-u url] <message>}"
+[ -n "$app" ] || { echo "pushover-send: -a <app> is required" >&2; exit 2; }
+
+item_json="$(~/tasks/op-service-account item get Pushover --vault Agent --format json --reveal)"
+user_key="$(jq -r '.fields[] | select(.id=="username") | .value' <<<"$item_json")"
+token="$(jq -r --arg app "$app" '.fields[] | select(.label==$app and .type=="CONCEALED") | .value' <<<"$item_json")"
+[ -n "$token" ] || { echo "pushover-send: no application token field named '$app' in the Pushover item" >&2; exit 1; }
+
+# curl config syntax: escape backslashes and double quotes inside the value.
+field() {
+	local v="${2//\\/\\\\}"
+	printf 'data-urlencode = "%s=%s"\n' "$1" "${v//\"/\\\"}"
+}
+{
+	field token "$token"
+	field user "$user_key"
+	field message "$message"
+	[ -z "$title" ] || field title "$title"
+	[ -z "$url" ] || field url "$url"
+	if [ -n "$priority" ]; then
+		field priority "$priority"
+		if [ "$priority" = 2 ]; then field retry 60; field expire 3600; fi
+	fi
+} | curl -sS -K - https://api.pushover.net/1/messages.json
+echo

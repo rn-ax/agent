@@ -42,6 +42,10 @@ Kuma's API is socket.io only (no REST), and this library is the client; its meth
 
 The item also carries an `api key` field. Kuma API keys authenticate only the Prometheus `/metrics` endpoint (basic auth, empty username), which `kuma-api` does not use.
 
+## Alerting
+
+A notification named `Pushover` (the `Uptime Kuma` application token, see the `pushover` skill) is default-enabled and attached to every monitor, so a monitor that goes down notifies the user's phone. A new monitor created through `kuma-api add_monitor` gets the default notification only when `notificationIDList` names it (`{"1": true}` for the Pushover notification); pass it explicitly.
+
 ## Monitor conventions
 
 All monitors use a 60 second interval with 3 retries (60 second retry interval), so an outage alerts after about four minutes. Names are the app's title (`Radarr`, `Eclipse Mosquitto`).
