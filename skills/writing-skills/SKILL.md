@@ -13,15 +13,13 @@ The directory name, the `name` in the frontmatter and the skill's trigger word a
 
 The `description` is all an agent sees before loading the skill, so it says when to use it: it starts with "Use whenever…", lists the situations, systems and phrases that should trigger it, and says what the skill holds.
 
-`SKILL.md` is organised by system: where it runs and how to authenticate (name the 1Password item and its fields, never a value), how to talk to it, its conventions, procedures, and known failure modes. A "Related systems" line names the neighbouring skills.
+`SKILL.md` is organised by system: where it runs and how to authenticate, how to talk to it, its conventions, procedures, and known failure modes. A "Related systems" line names the neighbouring skills.
 
 Scripts are executable files without an extension, each starting with a docstring that gives the usage, what it reads, what it writes and what its exit codes mean.
 
 ## Content
 
-Record durable, non-obvious facts: what took investigation to establish, or what isn't visible where the reader will look. A fact the tool already shows doesn't need a line.
-
-Describe how things work now. State a lesson as a fact plus how to apply it, without the story of when it was found. The `repo-docs` skill has the full set of writing rules and they apply here.
+What a skill holds, and what is left to other files such as a script's docstring, follows the placement table in the `repo-docs` skill.
 
 ## Scripts
 
@@ -66,7 +64,6 @@ Progress for a human goes to stderr. Stdout holds only the context.
 - **Scope is what the arguments name.** A script that can sweep a whole system takes a filter such as `--only`, so one task never edits unrelated records.
 - **Keep state minimal and visible.** If a script keeps a local file, the docstring names it, and it is gitignored when it belongs to one machine.
 - **API wrappers stay thin.** `<system>-api <method> <path> [curl args]` adds authentication and the base URL and nothing else, so every request is an agent decision.
-- **Reuse before writing.** Check for an existing script or skill first. When one nearly fits, improve it so every caller benefits.
 
 ## Flows
 

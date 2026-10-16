@@ -2,13 +2,18 @@
 """Helpers for fixing a document's OCR text by reading its pages yourself.
 
     ocr-pages prep ID [ID ...] [--dpi 130] [--no-trim]
-        Back up the current text, download the original, render an overview PNG per page.
+        Back up the current text, download the original, render an overview PNG per page. The
+        render uses the PDF's crop box and is trimmed to the content, because an image view costs
+        by pixel area and a receipt sits in a corner of an A4 page. Pages can differ in size.
     ocr-pages strips ID PAGE [--dpi 200] [--height 700]
-        Cut one page into full-width, overlapping strips for reading small or blurry text.
+        Cut one page into full-width, overlapping strips for reading small or blurry text. About
+        2,100 x 700 px stays legible on a smudged scan; the Read tool downsizes anything larger than
+        about 2,000 px, so a whole page is too small for fine print.
     ocr-pages crop ID PAGE X Y W H [--dpi 200]
         Crop a region; X Y W H are PIXELS at --dpi (points * dpi / 72).
     ocr-pages rotate ID PAGE DEGREES
-        Rotate a page's overview PNG (90 = clockwise; macOS sips) for scans stored sideways.
+        Rotate a page's overview PNG (90 = clockwise; macOS sips) for scans stored sideways;
+        text running down the page needs 270.
     ocr-pages put ID TEXTFILE [--dry-run]
         Replace the document's text with TEXTFILE and read it back. The only command that
         writes to Paperless, and it writes only the text: change tags with pl-tags.

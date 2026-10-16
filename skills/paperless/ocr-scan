@@ -13,8 +13,7 @@ is a separate step: `pl-tags --add bad-ocr ID ...`.
 Heuristics, all language-agnostic and computed on the `content` field (a document is flagged when
 any fails; every reason is reported):
   no_text           under 20 characters (plain-text documents are exempt)
-  broken_encoding   control characters above 2% of the text (a shifted embedded text layer; the
-                    page needs OCR from its image, not a re-read of the text layer)
+  broken_encoding   control characters above 2% of the text (a shifted embedded text layer)
   unknown_words     at least 15 letter tokens and known_ratio below --min-known, where known_ratio
                     is the share of tokens (3+ letters) that occur in at least 3 other documents.
                     Real words repeat across a library, OCR garbage doesn't.

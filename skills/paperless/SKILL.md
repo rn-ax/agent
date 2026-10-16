@@ -45,38 +45,22 @@ Things the migration guide (docs.paperless-ngx.com/migration-v3 — the site ret
 
 Credentials live in the "Paperless" item in the "Agent" 1Password vault: `password` is the API token, the first URL is the LAN address of the TrueNAS app (`http://truenas.lan:30070/`) and the second is the public `https://paper.rn.ax/`. The public hostname is behind Cloudflare Access, so token calls use the LAN URL.
 
-`pl-api <method> <path> [curl-args...]` (this skill's directory) makes one authenticated request; the path is relative to `<base>/api`, for example `pl-api GET '/tags/?page_size=5'`. It pins `Accept: application/json; version=9`, because API versions below 9 do not exist in v3.
-
-`pl-tags [--add NAME]... [--remove NAME]... [--dry-run] ID...` adds and removes tags on documents. It checks that the tags and documents exist before it writes, writes through Paperless's bulk edit, reads the result back, and reports what changed.
-
-The scripts in this skill print one JSON context on stdout: their inputs, each step they did, and the ids, paths and counts the next step needs. On failure the context carries an `error` that says which step failed and what had been done by then. They all share `paperless_lib.py`.
+`pl-api` makes one authenticated request. `pl-tags` adds and removes tags on documents. The other scripts here share `paperless_lib.py`.
 
 The API is preferred to `docker exec ... manage.py shell` over SSH. It needs no SSH session (the 1Password SSH agent approval lapses between agent calls), and bulk edits go through Paperless's own code, so the search index and audit history stay consistent.
 
 ## OCR quality scan
 
-`ocr-scan` fetches every document through the API (about a minute for 9,300), scores the stored `content` text, and writes the documents that fail, with their reasons, to `ocr-cache/flagged.csv`. It reads only: it changes nothing in Paperless and nothing in the confirmed list. Its context holds the counts, the reasons, the flagged ids and the report path.
+`ocr-scan` scores the stored text of every document and lists the ones that fail, without changing anything. Its docstring has the heuristics, the rules applied before scoring (inbox documents, the confirmed list, the "Pyssel / Teckning" type) and the confirmed list's format.
 
-`ocr-cache/confirmed_ok.csv` is a plain list of document ids, one per line, that the user is happy with. A document in the file is skipped by scans. A document not in the file is scored on every run, even when it passes. Nothing is recorded about documents that merely pass, and the file is the only state: no cursor, no hashes. It is gitignored and local to the machine. `ocr-scan ok 35 53 57-80` appends ids to it, `--tag NAME` appends every document currently carrying that tag, `--type NAME` every document of that type, and `--dry-run` shows what would be appended.
+The goal is that every document ends up in `ocr-cache/confirmed_ok.csv`, the list of documents the user is happy with, after fixing it by hand if needed. A document not in the list is scored on every run, even when it passes.
 
-Rules applied before any scoring, in this order:
-1. A document carrying a tag with Paperless's `is_inbox_tag` flag is skipped entirely, because it is not categorised yet and its metadata, such as the document type below, cannot be trusted. `ok` skips inbox documents as well. The API ignores an `is_inbox_tag` filter on `/tags/`, so the script reads the flag on each tag.
-2. A document in `confirmed_ok.csv` is skipped.
-3. A document of the type "Pyssel / Teckning" is skipped, because children's drawings rarely have meaningful text. The type is matched by name, case-insensitively, and `--confirm-type NAME` adds more. It is a different type from "Anteckningar".
+The library mixes Swedish, Finnish and English, which is why the scan compares words with the library itself and not with a dictionary. The thresholds come from reading sample text, not from checking page images, so expect false positives, mostly noisy thermal receipts. Documents flagged `broken_encoding` have an embedded text layer with a wrong character table, so the stored text is shifted while the page looks fine (`VDU LQIRUPDWLRQHQ` is "information" with every character 29 off). Paperless keeps an existing text layer by default, so these need OCR from the image, with `ocrmypdf --force-ocr` or `PAPERLESS_OCR_MODE=force`.
 
-Heuristics are language-agnostic, since the library mixes Swedish, Finnish and English. Any one failing flags a document:
-- `no_text`: under 20 characters.
-- `broken_encoding`: control characters above 2% of the text. The embedded font's character table is wrong, so the stored text is shifted (`VDU LQIRUPDWLRQHQ` is "information" with every character 29 off) while the page looks fine. Paperless keeps an existing text layer by default, so these pages need OCR from the image, with `ocrmypdf --force-ocr` or `PAPERLESS_OCR_MODE=force`.
-- `unknown_words`: with at least 15 letter tokens, fewer than 55% occur in at least 3 other documents. Real words repeat across a library and garbage mostly does not.
-- `thin_text`: under 15 tokens and under 150 characters per page.
-- `fragmented`: over 60% of the words have two letters or fewer, as in spaced-out text like `Samue l Valen t i n`, which the known-word ratio cannot see because the fragments are too short to count.
-
-Digits are ignored, so receipts are not penalised for numbers. The thresholds come from reading sample text, not from checking page images, so expect false positives, mostly noisy thermal receipts.
-
-Handing flagged documents to the user is three separate steps:
-1. `ocr-scan` and read `flagged_ids` from its context.
-2. `pl-tags --add bad-ocr ID...` tags them. The tag is the user's manual review list and is not kept in sync with the scan; the user removes it from a document once it is handled.
-3. `ocr-scan ok ID...` logs them, so later scans do not flag them again.
+Handing flagged documents to the user is three steps:
+1. `ocr-scan`, then read `flagged_ids` from its context.
+2. `pl-tags --add bad-ocr` on those ids. The tag is the user's manual review list and is not kept in sync with the scan; the user removes it from a document once it is handled.
+3. `ocr-scan ok` on the same ids, so later scans do not flag them again.
 
 Re-OCR through Paperless itself is the **Reprocess** action in the UI, which creates `reprocess_document` tasks.
 
@@ -84,15 +68,13 @@ Re-OCR through Paperless itself is the **Reprocess** action in the UI, which cre
 
 This is for documents with bad OCR and too much text for the user to retype by hand. The queue is the documents tagged `bad-ocr`, and a finished document gets the tag `claude-ocr` instead. The method: render the pages, read them as images (the Read tool shows PNGs), transcribe, and write the text into the document's `content` field.
 
-`ocr-pages` (this skill's directory) provides the mechanical steps, and the agent composes them:
+`ocr-pages` provides the mechanical steps, and the agent composes them:
 1. `ocr-pages next` lists the documents still tagged `bad-ocr` and not skipped, fewest pages first.
-2. `ocr-pages prep ID...` backs up the current text (never overwriting an earlier backup), downloads the originals and renders an overview PNG per page, with every page's size in the context. Read the overviews first for the layout.
-3. For small or blurry text, `ocr-pages strips ID PAGE` cuts a page into full-width overlapping strips at 200 dpi. About 2,100 × 700 px stays legible even on a smudged scan, and the Read tool downsizes anything larger than about 2,000 px, so a whole page is too small for fine print. `ocr-pages crop ID PAGE X Y W H` cuts one region, with X, Y, W and H in **pixels at that dpi** (points × dpi / 72), not points. `ocr-pages rotate ID PAGE DEGREES` turns a sideways scan upright; text running down the page needs 270.
-4. Write the transcription to a text file and run `ocr-pages put ID FILE` (`--dry-run` first if unsure). It replaces `content`, reads it back and verifies it, and refuses empty text. It writes only the text.
-5. `pl-tags --add claude-ocr --remove bad-ocr ID...` marks finished documents.
-6. A document that cannot be fixed stays tagged `bad-ocr`, and `ocr-pages skip ID "reason"` logs why so `next` stops offering it.
-
-Pages in one PDF can differ in size, so each page's own size is used. Scans often carry a crop box smaller than the media box; `ocr-pages` renders the crop box and trims each page to its content, because an image view costs by pixel area and a receipt sits in a corner of an A4 page.
+2. `ocr-pages prep` on a batch of ids backs up the current text and renders an overview of each page. Read the overviews first for the layout.
+3. `ocr-pages strips`, `crop` and `rotate` zoom in on small or blurry text and turn sideways scans upright.
+4. Write the transcription to a text file and run `ocr-pages put`, which replaces `content` and verifies it. It writes only the text.
+5. `pl-tags --add claude-ocr --remove bad-ocr` on the finished ids.
+6. A document that cannot be fixed stays tagged `bad-ocr`, and `ocr-pages skip` logs why so `next` stops offering it.
 
 How to transcribe:
 - Reading order, top to bottom, with a field label and its value on separate lines.

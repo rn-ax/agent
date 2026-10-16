@@ -1,6 +1,6 @@
 ---
 name: repo-docs
-description: Use whenever writing or editing a repository's own documentation — README.md, AGENTS.md, CLAUDE.md, or the repo's description/topics on GitHub — for guidance on writing content that stays accurate as the project changes, rather than freezing a snapshot of today's feature set.
+description: Use whenever writing or editing a repository's own documentation — README.md, AGENTS.md, CLAUDE.md, or the repo's description/topics on GitHub — and whenever deciding where a piece of information should be written down (agent instructions, a repo's AGENTS.md, a skill, a script's docstring, memory). It holds the rules for writing content that stays accurate as the project changes, and the table of which kind of information lives where.
 ---
 
 # Repository documentation
@@ -15,6 +15,24 @@ This applies anywhere a repo describes itself, not just prose docs:
 - Package manifests' `description` fields
 
 The same reasoning extends to *any* documentation that describes desired behavior via contrast with a past or rejected alternative ("not X", "instead of Y") rather than stating the thing directly — that framing is tied to whatever came before and rots the same way once the codebase moves past it. State the current architecture/behavior on its own terms.
+
+## Where information lives
+
+Every fact has one home, and everywhere else refers to it by name without copying it. A second copy goes stale and then contradicts the first. A fact lives at the narrowest scope that reaches all of its readers.
+
+| Information | Home |
+|---|---|
+| Standing rules for how an agent works on any task | the agent instructions |
+| What someone working in one repo needs to know (constraints, layout, commands) | that repo's root `AGENTS.md`; a convention for one directory or component goes in a nested `AGENTS.md` |
+| What an app's `AGENTS.md`, `DOMAIN.md` and README hold, and where tasks go | the documentation-files reference of the `agent-code-pusher` skill |
+| How a system or workflow works and how to operate it: where it runs, how to reach it, conventions, procedures, failure modes | the system's skill (`SKILL.md`) |
+| How a script is used: arguments, what it reads and writes, exit codes | the script's docstring; the skill names the script and shows where it fits in a flow |
+| How skills and scripts are written | the `writing-skills` skill |
+| A credential | 1Password; documents name the item and field |
+| A preference or correction from the user about how to work | auto-memory until it is a standing rule, then the agent instructions, and the memory entry is deleted |
+| Counts, dates, status, how something was discovered | not in durable documents; the tracker, commit or pull request description holds them |
+
+A pointer exists to make a home findable, as a trigger to load a skill or to open a file, and carries no content of its own.
 
 ## Status doesn't belong in durable docs either
 
