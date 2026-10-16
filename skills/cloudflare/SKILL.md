@@ -32,6 +32,18 @@ Several internal apps (`windmill.rn.ax` and others) sit behind Cloudflare Access
 
 To verify a bypass is actually live: `curl -H "CF-Access-Client-Id: ..." -H "CF-Access-Client-Secret: ..." <url>` and check for a real response vs. a 302 to `<subdomain>.cloudflareaccess.com`. Decoding the redirect's `meta` JWT param (base64url, second dot-segment) shows `service_token_status` — `false` means Access didn't recognize the credential as valid for that request, regardless of how correct the token looks in isolation.
 
+## Published hostnames: two layers protect them
+
+A public hostname on a tunnel (a "published application") is protected by an Access application only when both of these line up:
+- **The Access application** lists the hostname among its destinations, with the policies that decide who may enter (almost everything uses the reusable `Samuel` policy). Cloudflare matches it by hostname at the edge. Publishing a hostname neither creates nor selects an application; a hostname no application covers reaches the app directly, protected only by the app's own login. One application can cover several hostnames and then shares its policies and AUD tag (`Hive` covers `hive.rn.ax` and `songs.rn.ax`); an app that needs different policies or service tokens gets its own.
+- **The tunnel route's `originRequest.access` block** (`required: true`, `teamName: rutinerad`, the application's `audTag`) makes `cloudflared` itself reject any request without a valid Access JWT for that application, so the route fails closed if the application is deleted or misconfigured. It is the "look up the AUD and paste it" option in the route's Access protection setting; "Using defaults" leaves the block out. `cloudflared` uses the **first** ingress rule matching a hostname, so a duplicate route without the block shadows a later one that has it.
+
+The ingress rules are readable per tunnel: `cf-api GET /accounts/<acct>/cfd_tunnel/<tunnel-id>/configurations`. To audit every published hostname, request `/` on each over HTTPS and expect a 302 whose `Location` is `rutinerad.cloudflareaccess.com`, then compare with `GET /accounts/<acct>/access/apps` (destinations, wildcards included) and the route's `audTag`. A path-scoped application passes this check while leaving other paths open.
+
+## Redirects
+
+Zone redirects are Single Redirect rules, phase `http_request_dynamic_redirect` (`GET /zones/<zone>/rulesets/phases/http_request_dynamic_redirect/entrypoint`; the ruleset does not exist until the first rule is saved). They run at the edge before the tunnel, so a redirected hostname never reaches its origin, and the hostname still needs a proxied DNS record. A wildcard pattern must match the entire URL, and `${1}`, `${2}` are the `*` captures in order. `www.rn.ax` redirects to `rn.ax` with pattern `http*://www.rn.ax/*` and target `https://rn.ax/${2}` (301, "Preserve query string" off since the capture carries the query); matching on `https://` alone leaves plain `http://` requests reaching the origin. A saved rule takes a few seconds to apply, so verify with `curl --resolve` against the public edge address.
+
 ## WARP private-network access (reaching home hosts from phones and laptops)
 
 Zero Trust org `rutinerad` routes private IPs to hosts through Cloudflare Tunnels. A device enrolled in WARP reaches a host's private IP when two things are true: a **CIDR route** for that IP points at the host's tunnel, and the IP is in the **default WARP profile's Split Tunnel includes** (the profile is in Include mode, so only listed ranges go through WARP). Raw protocols such as SSH then work from native apps with no `cloudflared` on the client; a public hostname through Access serves browsers only.
