@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Authenticated Uptime Kuma HTTP wrapper, using the API key in the "Uptime
+# Kuma" item of the "Agent" 1Password vault (`password` field). The key
+# authenticates Kuma's HTTP endpoints that accept API keys — `/metrics`
+# (Prometheus text: monitor status, response time, certificate expiry) — via
+# basic auth with an empty username. Base URL is the item's first URL when it
+# has one, otherwise the LAN address.
+# Usage: kuma-api <path> [curl-args...]
+#   kuma-api /metrics
+#   kuma-api /metrics | grep '^monitor_status'
+#
+# <path> is relative to the base URL and must start with /.
+set -euo pipefail
+
+path="${1:?Usage: kuma-api <path> [curl-args...]}"
+shift
+
+item_json="$(~/tasks/op-service-account item get "Uptime Kuma" --vault Agent --format json --reveal)"
+base_url="$(jq -r '.urls[0].href // "http://truenas.lan:31050"' <<<"$item_json")"
+base_url="${base_url%/}"
+key="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+
+curl -sS -u ":${key}" "${base_url}${path}" "$@"

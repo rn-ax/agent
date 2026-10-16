@@ -21,17 +21,27 @@ The container runs as root with all capabilities dropped except `NET_RAW`. Root 
 
 The Docker socket is not mounted: it gives the container root-equivalent control of the host's Docker. Container-state checks go through a push monitor (see "Apps with no network surface").
 
-The login is the user `samuel`; the credentials live in the "Uptime Kuma" item of the "Agent" 1Password vault.
+The "Uptime Kuma" item of the "Agent" 1Password vault holds an API key in `password`. The user's own login (`samuel`) is held by the user and not available to agents.
 
-## Driving it from an agent
+## Reading status: `kuma-api`
 
-Kuma exposes only a socket.io API, no REST. Use the `uptime-kuma-api-v2` Python library (it targets Kuma 2.x):
+`kuma-api <path>` (this skill's directory) calls Kuma over HTTP with the API key from the 1Password item, the same way `wm-api` does for Windmill. The key opens `/metrics`, the Prometheus text endpoint, which carries every monitor's state:
+
+```sh
+kuma-api /metrics | grep '^monitor_status'
+```
+
+Each `monitor_status{monitor_name="…",monitor_type="…",…}` line ends in `1` (up), `0` (down), `2` (pending) or `3` (maintenance). `monitor_response_time` and `monitor_cert_days_remaining` sit alongside. API keys authenticate only these HTTP endpoints; the socket.io API below needs the user's login.
+
+## Changing monitors
+
+Changes go through Kuma's socket.io API, which has no REST equivalent and authenticates with the user's login rather than the API key. A task that adds or edits monitors therefore needs the user to supply the login for that run. Use the `uptime-kuma-api-v2` Python library (it targets Kuma 2.x):
 
 ```sh
 uv run --no-project --with uptime-kuma-api-v2 python -I script.py
 ```
 
-with `api = UptimeKumaApi('http://truenas.lan:31050'); api.login(user, password)`; read the password in the script from wherever it was fetched, never print it. Behaviours worth knowing:
+with `api = UptimeKumaApi('http://truenas.lan:31050'); api.login(user, password)`; never print the password. Behaviours worth knowing:
 - `add_monitor(type=MonitorType.…, name=…, interval=60, retryInterval=60, maxretries=3, …)`; `get_monitors()` lists them; `get_monitor_beats(id, hours)` returns recent heartbeats (the last entry's `status` and `msg` say why a monitor is down).
 - A `JSON_QUERY` monitor needs `jsonPathOperator='=='` next to `jsonPath` and `expectedValue`; without it every check fails with "Invalid condition null".
 - A `PUSH` monitor gets its token from the server on creation; read it back with `get_monitor(id)['pushToken']`. The push URL is `/api/push/<token>?status=up`.
