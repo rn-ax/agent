@@ -19,7 +19,7 @@ Scripts are executable files without an extension, each starting with a docstrin
 
 ## Content
 
-What a skill holds, and what is left to other files such as a script's docstring, follows the placement table in the `repo-docs` skill.
+What a skill holds, and what is left to other files such as a script's docstring, follows "Where information lives" in the agent instructions.
 
 ## Scripts
 
