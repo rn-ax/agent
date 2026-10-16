@@ -17,7 +17,7 @@ Pushover delivers most of the user's notifications to their phone. Anything that
 
 The "Pushover" item in the "Agent" 1Password vault holds:
 - `username` — the user's User Key (identifies the recipient).
-- `email` — the user's Pushover email address; mail sent to it becomes a notification, which suits a system that can only send email.
+- `email` — the user's Pushover email address, the destination Fastmail forwards `po.*@rn.ax` mail to (see "Sending by email").
 - one concealed field per **application token**, named after the sender (currently `Uptime Kuma`). Pushover shows the application's name and icon on each notification, so each sender gets its own application and its own field.
 
 A new sender gets a new application at pushover.net (the user creates it), and its token is added to the item as a field named after the sender.
@@ -27,6 +27,10 @@ A new sender gets a new application at pushover.net (the user creates it), and i
 `pushover-send -a <app> [-t <title>] [-p <priority>] [-u <url>] <message>` (this skill's directory) reads the User Key and the named application's token from the item and posts to the Pushover API, keeping both off the command line. `-a` names the field holding the sender's token; the JSON reply has `"status":1` on success.
 
 Priorities: `-2` silent (appears in the app only), `-1` quiet, `0` normal (default), `1` high (bypasses the user's quiet hours), `2` emergency (repeats every 60 seconds for an hour until acknowledged). Reserve `1` and `2` for outages; test with `-2` so the phone stays quiet.
+
+## Sending by email
+
+Any message to an address matching `po\.[\w-]+@rn.ax` is forwarded to Pushover and arrives as a notification. A system that can only send email uses its own address per use case, e.g. `po.uptime-kuma@rn.ax`, so the sender is identifiable in the notification and an address can be blocked on its own (see the `email` skill). Any local-part after `po.` works without further setup.
 
 ## Consumers
 
