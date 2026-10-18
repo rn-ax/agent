@@ -97,6 +97,7 @@ How to transcribe:
 - Mark handwriting `[handskrivet]` and anything unreadable `[oläsligt]`. Where table rows do not line up, transcribe column by column and say so in the text.
 - Standard boilerplate with a few smudged words can be resolved from context, and the user is told which words were inferred and which labels were normalised.
 - Sums on the page are a check on the reading: a currency conversion, or marks adding up to a printed total.
+- A receipt or slip is transcribed by its fields: the shop and address, date and time, the items with prices, totals and VAT, payment details, document numbers and any handwriting. The standard footer (return policy, opening hours, terminal slogans) and barcodes are left out, since nobody searches for them and they are most of a receipt's text.
 
 What kinds of documents come up:
 - Pictures with no text, such as a collage or a photograph, have nothing to fix and get `ocr-ok`. They are flagged `no_text` because they are typed as ordinary documents; typing them "Pyssel / Teckning" makes the scan skip them.
