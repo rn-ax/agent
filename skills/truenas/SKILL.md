@@ -19,9 +19,11 @@ SSH access is configured via **System → Services → SSH** (Running, Start Aut
 
 A TrueNAS API key is revocable and can get auto-revoked on "incorrect use" elsewhere (e.g. unrelated debugging of a different key can trip it) — SSH root-via-sudo access has no such revocation risk, which is why `tn-api` goes through SSH rather than the API key. This is for interactive/agent-session queries only: a script meant to run unattended on a system with no SSH access of its own (a Windmill job, running in a container) still needs the real websocket+`API_KEY_PLAIN` flow directly, e.g. `rn-ax/windmill`'s `f/truenas/prune_images.py`.
 
-**The TrueNAS API key's source of truth is the "TrueNAS" item in the "Agent" 1Password vault** (`password` field) — pull from there for anything that needs the literal key value. Two other places hold a copy, each scoped to one specific automated consumer, not as a general-purpose reference: `rn-ax/monocoque`'s `TRUENAS_API_KEY` GitHub Actions secret (its own `truenas-deploy` CI action) and `rn-ax/windmill`'s `f/truenas/api_key` Windmill variable (`prune_images.py`, via the `f/truenas/truenas` resource).
+**Every consumer of the TrueNAS API has its own API key.** A key is created in TrueNAS (Credentials → API Keys; `tn-api api_key.query` lists them without their values) for one system, component or application, named `<consumer> - <purpose>` (`CI - monocoque truenas-deploy`, `Windmill - prune_images`, `Agent`), and lives only where that consumer reads it, such as a GitHub Actions secret or a Windmill variable. A new consumer gets a new key, and a key is never copied to a second consumer, so each one can be rotated or revoked on its own.
 
-Don't read or reuse the monocoque secret as a stand-in for the 1Password value elsewhere — update 1Password first, then push the new value out to each downstream copy that needs it. The one place the monocoque secret *is* the right thing to use as-is is monocoque's own CI.
+The "TrueNAS" item in the "Agent" 1Password vault holds the `Agent` key (`password` field), which is for ad-hoc agent sessions. Pipelines and applications never read it.
+
+An API key is tied to a TrueNAS user and carries that user's privilege; the built-in privileges are Local Administrator, Read-Only Administrator and Sharing Administrator. Creating a key, and storing it somewhere new, is new access that Samuel decides on.
 
 ## Disks and pools
 
