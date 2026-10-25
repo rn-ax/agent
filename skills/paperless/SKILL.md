@@ -51,30 +51,42 @@ The API is preferred to `docker exec ... manage.py shell` over SSH. It needs no 
 
 ## OCR quality scan
 
-`ocr-scan` scores the stored text of every document and lists the ones that fail, without changing anything. Its docstring has the heuristics, the rules applied before scoring (inbox documents, the confirmed list, the "Pyssel / Teckning" type) and the confirmed list's format.
+## OCR tags
 
-The goal is that every document ends up in `ocr-cache/confirmed_ok.csv`, the list of documents the user is happy with, after fixing it by hand if needed. A document not in the list is scored on every run, even when it passes.
+The state of every document's OCR is a tag under the parent tag `agent-ocr`. Paperless is the only place this is recorded, so it is visible in the UI and the same from every machine.
+
+| Tag | Meaning |
+|---|---|
+| `ocr-bad` | The scan found bad OCR; it waits to be fixed. This is the queue. |
+| `ocr-fixed` | The agent rewrote the text from the page images; it waits for the user's review. |
+| `ocr-ok` | The OCR is confirmed fine, by the user or because there is nothing to fix (a picture). Scans skip it. |
+| `ocr-skipped` | The agent looked and could not or should not fix it, such as a drawing whose PDF is corrupt. It stays unresolved. |
+
+A document moves one step at a time: `ocr-bad` to `ocr-fixed` when the agent has rewritten it, `ocr-fixed` to `ocr-ok` when the user has reviewed it, `ocr-bad` to `ocr-skipped` when the agent cannot fix it. A document the user fixes by hand goes straight to `ocr-ok`. Each change is one `pl-tags` call.
+
+## OCR quality scan
+
+`ocr-scan` scores the stored text of every document and lists the ones that fail, without changing anything. Its docstring has the heuristics and the rules that skip a document before scoring: inbox documents, documents already tagged under `agent-ocr`, and the "Pyssel / Teckning" type. A document without a tag is scored on every run, even when it passes.
 
 The library mixes Swedish, Finnish and English, which is why the scan compares words with the library itself and not with a dictionary. The thresholds come from reading sample text, not from checking page images, so expect false positives, mostly noisy thermal receipts. Documents flagged `broken_encoding` have an embedded text layer with a wrong character table, so the stored text is shifted while the page looks fine (`VDU LQIRUPDWLRQHQ` is "information" with every character 29 off). Paperless keeps an existing text layer by default, so these need OCR from the image, with `ocrmypdf --force-ocr` or `PAPERLESS_OCR_MODE=force`.
 
-Handing flagged documents to the user is three steps:
+Handing flagged documents over takes two steps:
 1. `ocr-scan`, then read `flagged_ids` from its context.
-2. `pl-tags --add bad-ocr` on those ids. The tag is the user's manual review list and is not kept in sync with the scan; the user removes it from a document once it is handled.
-3. `ocr-scan ok` on the same ids, so later scans do not flag them again.
+2. `pl-tags --add ocr-bad` on those ids.
 
 Re-OCR through Paperless itself is the **Reprocess** action in the UI, which creates `reprocess_document` tasks.
 
 ## Fixing OCR by reading the pages yourself
 
-This is for documents with bad OCR and too much text for the user to retype by hand. The queue is the documents tagged `bad-ocr`, and a finished document gets the tag `claude-ocr` instead. The method: render the pages, read them as images (the Read tool shows PNGs), transcribe, and write the text into the document's `content` field.
+This is for documents with bad OCR and too much text for the user to retype by hand. The queue is the documents tagged `ocr-bad`. The method: render the pages, read them as images (the Read tool shows PNGs), transcribe, and write the text into the document's `content` field.
 
 `ocr-pages` provides the mechanical steps, and the agent composes them:
-1. `ocr-pages next` lists the documents still tagged `bad-ocr` and not skipped, fewest pages first.
+1. `ocr-pages next` lists the documents still tagged `ocr-bad`, fewest pages first.
 2. `ocr-pages prep` on a batch of ids backs up the current text and renders an overview of each page. Read the overviews first for the layout.
 3. `ocr-pages strips`, `crop` and `rotate` zoom in on small or blurry text and turn sideways scans upright.
 4. Write the transcription to a text file and run `ocr-pages put`, which replaces `content` and verifies it. It writes only the text.
-5. `pl-tags --add claude-ocr --remove bad-ocr` on the finished ids.
-6. A document that cannot be fixed stays tagged `bad-ocr`, and `ocr-pages skip` logs why so `next` stops offering it.
+5. `pl-tags --add ocr-fixed --remove ocr-bad` on the finished ids.
+6. A document that cannot be fixed gets `pl-tags --add ocr-skipped --remove ocr-bad`, and the reason goes in the report to the user.
 
 How to transcribe:
 - Reading order, top to bottom, with a field label and its value on separate lines.
@@ -85,11 +97,12 @@ How to transcribe:
 - Mark handwriting `[handskrivet]` and anything unreadable `[oläsligt]`. Where table rows do not line up, transcribe column by column and say so in the text.
 - Standard boilerplate with a few smudged words can be resolved from context, and the user is told which words were inferred and which labels were normalised.
 - Sums on the page are a check on the reading: a currency conversion, or marks adding up to a printed total.
+- A receipt or slip is transcribed by its fields: the shop and address, date and time, the items with prices, totals and VAT, payment details, document numbers and any handwriting. The standard footer (return policy, opening hours, terminal slogans) and barcodes are left out, since nobody searches for them and they are most of a receipt's text.
 
 What kinds of documents come up:
-- Pictures with no text, such as a collage or a photograph, cannot be fixed and are skipped. They are flagged `no_text` because they are typed as ordinary documents; typing them "Pyssel / Teckning" makes the scan skip them.
+- Pictures with no text, such as a collage or a photograph, have nothing to fix and get `ocr-ok`. They are flagged `no_text` because they are typed as ordinary documents; typing them "Pyssel / Teckning" makes the scan skip them.
 - Picture-only manuals have almost no text: part labels, step numbers, dimensions, reference numbers and a multilingual title block. Transcribe exactly that, start with a one-line marker such as `[Bruksanvisning med bilder, nästan ingen text]`, and do not describe the pictures.
-- CAD drawings with hundreds of dimension labels, and PDFs that fail with poppler errors like `Unknown operator 'e+09'` (the corrupt-stream class above), are repaired mechanically with `analyze-pdf` and reprocessed, so they are skipped here.
+- CAD drawings with hundreds of dimension labels, and PDFs that fail with poppler errors like `Unknown operator 'e+09'` (the corrupt-stream class above), are repaired mechanically with `analyze-pdf` and reprocessed, so they get `ocr-skipped` here.
 - Reading is done by the main agent. Cheaper models misread amounts and identifiers plausibly, invent tables for handwritten sheets, and write hedges such as `(eller liknande)` into the text. A wrong, plausible number is worse than bad OCR.
 - Plan for roughly 3,000 to 6,000 tokens per document, less for a single receipt. Reading several documents' images in one call and writing the files in the next keeps the number of calls low.
 
