@@ -16,6 +16,10 @@ This applies anywhere a repo describes itself, not just prose docs:
 
 The same reasoning extends to *any* documentation that describes desired behavior via contrast with a past or rejected alternative ("not X", "instead of Y") rather than stating the thing directly — that framing is tied to whatever came before and rots the same way once the codebase moves past it. State the current architecture/behavior on its own terms.
 
+## One instruction file
+
+A repo's agent instructions live in a single file, `AGENTS.md` at the repo root. Every coding tool the repo is worked on with reads that file, so a new repo has no other entry file for agent instructions.
+
 ## Status doesn't belong in durable docs either
 
 A "Project status" or "Current scope" section is the same rot pattern applied to progress instead of features — it's a snapshot of what's done/in-progress/planned *right now*, and it's wrong again the next time an issue closes or a new one opens. Worse than a stale feature list, because a tracker (GitHub Issues, a project board) already shows this live, natively, in its own UI — a section restating it in README/AGENTS.md isn't just liable to drift, it's redundant with something that can't drift by construction. Don't add the section, don't add a sentence pointing at the tracker either — GitHub already surfaces Issues on its own tab with no doc needed to find it. If a doc needs to say anything about scope, describe the problem the project solves (stable), not how much of solving it is currently done (constantly moving).
