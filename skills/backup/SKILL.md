@@ -48,13 +48,14 @@ Elsewhere: no Time Machine destination or Mac backup is documented yet, and no r
 
 Everything in `Storage` apart from `Movies` and `TV` is under about 0.5 TB, so the irreplaceable tier fits on one backup disk several times over. The size of the "important media" subset decides the capacity plan.
 
-## Backup server (planned)
+## Backup server (planned; first disk and SMART access confirmed 2026-10-30)
 
-The M1 Mac mini `server.lan` is the backup server, with a Deltaco SI-1359RUS3 5-bay enclosure (recorded in Homebox) attached over USB 3.0.
+The M1 Mac mini `server.lan` is the backup server, with a TerraMaster D4-320 4-bay enclosure attached over USB 3.2 Gen 2. It replaces the Deltaco SI-1359RUS3, which malfunctioned. The D4-320 has no hardware RAID, so every bay is an independent disk. Its purchase and the Mac compatibility research are in the `online-shopping` skill (`investigations/2026-10-16-mac-mini-disk-enclosure.md`).
 
-- The enclosure runs in **Clear RAID** mode so every bay is an independent disk. Its manual says only the failed disk is affected when one dies; it has no sleep mode in this mode.
-- Open check: the vendor lists a 15 TB maximum (5 × 3 TB), so the behaviour of larger disks in this unit is untested. Test a larger disk before moving data.
-- Open check: confirm that Clear RAID shows each disk separately over USB before relying on it.
+- **Layout on the host.** The enclosure shows up in `system_profiler SPUSBDataType` as a "4-Port USB 3.2 Hub" with each disk as its own USB device named `TDAS` behind it, and `diskutil` lists a disk as an external physical device with the model name `TDAS`. The volume label (for example `Terra-13`) belongs to the APFS container the disk carries. The disk is the physical device (`disk6`); the container (`disk7`) is a software layer on top.
+- **SMART works natively.** `sudo smartctl -a /dev/diskN` reads the full SMART data of a disk in the D4-320 on an Apple Silicon Mac running macOS 27 with smartmontools 7.5, including the real model, serial number and self-test log. `-d sat` fails there with "Not a device of type 'scsi'" because macOS exposes no raw ATA pass-through for USB storage. A forum reporter on an earlier macOS got "Not Supported", so a different macOS version may behave differently. Starting a self-test through the enclosure (`smartctl -t long`) is untested.
+- **Sleep design.** One disk serves data and stays mounted. The other disks are backup disks that stay unmounted and idle except during a backup job, which mounts the volume (`diskutil mount`), runs the backup, checks SMART, unmounts it (`diskutil unmountDisk`) and pings the health check. `sudo pmset -a disksleep <minutes>` sets the idle time for all disks, Spotlight is off on backup volumes (`mdutil -i off`, plus `.metadata_never_index` on the volume), and `smartctl -n standby -i /dev/diskN` checks whether a disk is asleep without waking it. Whether the D4-320 spins a disk down when it is only unmounted is untested; the forum threads report an enclosure default of about 60 seconds idle before spin-down and disks that fail to wake on some Macs.
+- **Disks in use.** The first disk is a WD Red 3 TB (`WD30EFRX`, CMR, serial `WD-WMC1T2678849`) with 90,860 power-on hours. On 2026-10-30 its SMART counters were clean (reallocated, pending and offline-uncorrectable sectors 0, CRC errors 0, no logged errors, `Multi_Zone_Error_Rate` 3). Its self-test log had monthly long tests up to lifetime hour 25,220 and none since, so a long test is the first step before trusting it. The disk's age makes it a fit for a backup role, not for serving data.
 - Mac backups use Time Machine over SMB (a shared folder on the Mac mini with "Share as a Time Machine backup destination"), one volume or quota per Mac. The Mac mini's own disk is cloned to a separate backup disk with SuperDuper or Carbon Copy Cloner.
 - TrueNAS data reaches the Mac mini through rsync over SSH or a versioned tool (restic or Kopia). ZFS replication needs ZFS on the receiving side.
 
@@ -74,3 +75,4 @@ A scheduled job on the Mac mini sends an encrypted, versioned copy of the irrepl
 ## Log
 
 - 2026-10-13: Skill created from the design discussion. TrueNAS pool layout, existing tasks and the Cloud Sync job confirmed live.
+- 2026-10-30: The TerraMaster D4-320 replaces the malfunctioning Deltaco enclosure. SMART data of a disk in it read natively on macOS 27; first disk's baseline recorded; sleep design written down.

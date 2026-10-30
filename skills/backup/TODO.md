@@ -13,15 +13,13 @@ Work still open on the backup solution, grouped by theme. The design, principles
 
 ## Backup server
 
-- [ ] Attach the Deltaco enclosure to the Mac mini `server.lan` over USB 3.0 and set it to Clear RAID with the power off.
-- [ ] Test with a spare disk that Clear RAID shows every disk separately over USB.
-- [ ] Test a disk larger than 3 TB in the enclosure (the vendor lists a 15 TB maximum for five bays).
+- [ ] Attach the TerraMaster D4-320 to the Mac mini `server.lan` over USB 3.2 and check that every bay shows up as its own disk and that the disks mount again after a reboot of the Mac mini.
+- [ ] Run a long self-test (`smartctl -t long`) on the first disk (WD Red 3 TB) through the enclosure and record the result and the final SMART counters.
 - [ ] Choose which disks serve as data, backup and spare, and format them.
 - [ ] Record what the Mac mini `server.lan` runs today (Paperless among others) and which of that data is a backup source.
 - [ ] Enable Remote Login and File Sharing on the Mac mini, create the Time Machine share and set a quota per Mac.
-- [ ] Decide on sleep and power settings for an always-on backup server; Clear RAID gives the enclosure no sleep mode.
-- [ ] Record the quantity and the serial number of the enclosure in Homebox (the user has more than one) and fill in the Mac mini's configuration there.
-- [x] The enclosure is identified (Deltaco SI-1359RUS3) and recorded in Homebox with its manual and photos.
+- [ ] Test the sleep design on the D4-320: set `pmset disksleep`, confirm with `smartctl -n standby` that an unmounted disk reaches standby, and that it wakes and remounts for a job.
+- [ ] Record the D4-320 and its disks (the first is serial `WD-WMC1T2678849`) in Homebox, mark the malfunctioning Deltaco SI-1359RUS3 as faulty there, and fill in the Mac mini's configuration.
 
 ## TrueNAS
 
@@ -50,7 +48,7 @@ Work still open on the backup solution, grouped by theme. The design, principles
 
 - [ ] Give every backup job a health-check ping, and alert on a missed run through Home Assistant or Windmill.
 - [ ] Schedule a sample restore from each copy and record the result.
-- [ ] Find out whether SMART data is readable through the enclosure's USB bridge, and monitor disk health if it is.
+- [ ] Add a SMART check to every backup job (fail on non-zero reallocated, pending or offline-uncorrectable counts) and a monthly long self-test of each backup disk.
 - [ ] Write a restore runbook for each source (TrueNAS dataset, Mac, Home Assistant).
 
 ## Skill upkeep
