@@ -17,10 +17,8 @@
     ocr-pages put ID TEXTFILE [--dry-run]
         Replace the document's text with TEXTFILE and read it back. The only command that
         writes to Paperless, and it writes only the text: change tags with pl-tags.
-    ocr-pages skip ID REASON
-        Log that you could not fix a document, so `next` stops offering it.
     ocr-pages next [--n 10] [--min-pages A] [--max-pages B]
-        Documents still tagged bad-ocr and not skipped, fewest pages first.
+        Documents still tagged ocr-bad, fewest pages first.
 
 View the PNGs with an image viewer (Claude: the Read tool), transcribe into a text file, then `put`.
 
@@ -28,7 +26,7 @@ Every command prints one JSON context on stdout (inputs, each step done, the pat
 step needs) and exits 0, or 1 with an `error` in the context saying which step failed and what had
 been done by then. Scratch files live in $CLAUDE_JOB_DIR/tmp/paperless-ocr/ID (else the system temp
 dir); the first backup of a document is never overwritten, so it holds the text from before any
-change. `skip` appends to skipped.jsonl in the parent folder. Needs pdfinfo and pdftoppm (poppler).
+change. Needs pdfinfo and pdftoppm (poppler).
 """
 import argparse
 import glob
@@ -43,7 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paperless_lib import Api, Context, Failure
 
-FLAG_TAG = "bad-ocr"
+FLAG_TAG = "ocr-bad"
 
 
 def state_dir():
@@ -210,22 +208,13 @@ def cmd_put(ctx, a):
         raise Failure("the stored text differs from what was sent", sent_chars=len(text), stored_chars=len(stored))
 
 
-def cmd_skip(ctx, a):
-    log = state_dir() / "skipped.jsonl"
-    with open(log, "a") as f:
-        f.write(json.dumps({"id": a.id, "reason": a.reason}, ensure_ascii=False) + "\n")
-    ctx.set(logged=True, log=str(log))
-
-
 def cmd_next(ctx, a):
     api = Api()
-    log = state_dir() / "skipped.jsonl"
-    skipped = {json.loads(l)["id"] for l in log.read_text().splitlines() if l.strip()} if log.exists() else set()
     flag = api.tag(FLAG_TAG)
     docs = api.documents(f"tags__id__all={flag['id']}", "id,title,page_count")
-    pool = [d for d in docs if d["id"] not in skipped and a.min_pages <= (d["page_count"] or 1) <= a.max_pages]
+    pool = [d for d in docs if a.min_pages <= (d["page_count"] or 1) <= a.max_pages]
     pool.sort(key=lambda d: ((d["page_count"] or 1), d["id"]))
-    ctx.set(tagged=len(docs), skipped=len(skipped & {d["id"] for d in docs}), remaining=len(pool),
+    ctx.set(tagged=len(docs), remaining=len(pool),
             candidates=[{"id": d["id"], "pages": d["page_count"], "title": d["title"][:80]} for d in pool[:a.n]])
 
 
@@ -240,7 +229,6 @@ def main():
     p.add_argument("--dpi", type=int, default=200); p.set_defaults(f=cmd_crop)
     p = sub.add_parser("rotate"); p.add_argument("id", type=int); p.add_argument("page", type=int); p.add_argument("degrees", type=int); p.set_defaults(f=cmd_rotate)
     p = sub.add_parser("put"); p.add_argument("id", type=int); p.add_argument("textfile"); p.add_argument("--dry-run", action="store_true"); p.set_defaults(f=cmd_put)
-    p = sub.add_parser("skip"); p.add_argument("id", type=int); p.add_argument("reason"); p.set_defaults(f=cmd_skip)
     p = sub.add_parser("next"); p.add_argument("--n", type=int, default=10); p.add_argument("--min-pages", type=int, default=1); p.add_argument("--max-pages", type=int, default=10**6); p.set_defaults(f=cmd_next)
     a = ap.parse_args()
     args = {k: v for k, v in vars(a).items() if k != "f"}
