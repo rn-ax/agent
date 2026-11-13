@@ -36,6 +36,12 @@ Each app or repository keeps `AGENTS.md`, `DOMAIN.md` and the README scoped to t
 
 Technical and architecture conventions for coding agents: stack, patterns, gotchas, non-obvious constraints, and how the parts fit together. It is agent-agnostic, readable by any coding tool and not only Claude.
 
+The root `AGENTS.md` holds what applies across the whole repository: the stack, the workflow, and how the parts fit together. A convention that applies to one directory or component goes in a nested `AGENTS.md` in that directory (`backend/AGENTS.md`, `frontend/AGENTS.md`), which an agent reads when it works there.
+
+An `AGENTS.md` records what the implementation does not show: a constraint, a gotcha, a reason that spans files. What a reader can see in the code, the configuration or the tests stays out, such as names, directory structure, values, task lists, where a file lives and behavior that a test pins down. A reason that belongs to one line is a comment on that line.
+
+When an `AGENTS.md` grows, each fact either moves to the nested file of the component it concerns or is deleted because the implementation already says it.
+
 ### DOMAIN.md
 
 Stable business knowledge: what the real-world concepts of the app mean and what must always hold about them. It lives at the root of the app's directory (`apps/<app>/DOMAIN.md` in monocoque, the repository root elsewhere), changes rarely, and describes the problem, not the code or its implementation status.
