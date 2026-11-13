@@ -24,7 +24,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 - `# Context` holds why the functionality exists and what is out of scope, as it is now: it is edited when it changes, carries no dates and records no history. A choice is written down only when it stops someone taking a wrong turn; how a choice was reached stays in the pull request and git history.
 - `# Criteria` is the list `- AC-<n>: <rule>`.
 - A test relates to exactly one criterion and carries its `[AC-<n>]` in the title. A criterion can have several tests.
-- Domain facts that explain what the app's concepts mean stay in the app's `DOMAIN.md`.
+- What the app's concepts mean and what must always hold about them are written in the spec files: the meaning in `# Context`, the invariants as criteria. The repo has no `DOMAIN.md`.
 
 ## Method
 
@@ -35,7 +35,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 The spec changes first. Criteria are written and approved before the code that satisfies them, and a change to the method is made in this skill before any repo is changed to follow it.
 
-Where other information lives: what the concepts mean in `DOMAIN.md`, technical constraints and non-obvious gotchas in `AGENTS.md`, why a choice was made and which approaches were rejected in the pull request description.
+Where other information lives: what the concepts mean in the context of the spec files, facts specific to the repo (constraints and non-obvious gotchas) in `AGENTS.md`, why a choice was made and which approaches were rejected in the pull request description.
 
 ## Delivery
 
