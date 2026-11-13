@@ -19,7 +19,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 - A rule the software must satisfy is an acceptance criterion `AC-<n>`: one line that is compact, concise, independent of the others, and states behavior that can be checked. One that cannot be checked is a defect in the criterion.
 - A criterion is immutable. It is deleted when it no longer applies and never edited; changing a rule means deleting the criterion and adding a new one with a new number. A deleted number is never reused.
-- Criteria live in `spec/`, grouped into files by the context they apply to. A criterion may move between files. When a file grows too big, find the groups in it and split it along them.
+- Criteria live in `spec/`. They start in a single file. When a file grows too big, find the two groups in it that divide it best and split it into exactly those two files, named for the context each applies to. A criterion may move between files.
 - Each file is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept file: markdown with YAML frontmatter (`type` is the one required key, `title` and `description` are recommended) followed by the list `- AC-<n>: <rule>`.
 - A test that proves a criterion carries `[AC-<n>]` in its title.
 - Domain facts that explain what the app's concepts mean stay in the app's `DOMAIN.md`.
