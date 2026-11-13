@@ -35,17 +35,17 @@ For non-trivial or ambiguous tasks, use Claude Code's built-in Plan Mode (`Enter
 Plan Mode should leave two durable artifacts, not just an approved message:
 
 1. **Knowledge** — any non-obvious constraint, architecture decision, or stable business fact uncovered while planning goes into the repository's documentation (the `repo-docs` skill says which file), so future sessions don't have to rediscover it.
-2. **Tasks** — the concrete steps of the plan become tasks via `atask` (see the `todo` skill), so progress through the worktree/commit/PR flow below is tracked rather than held only in the plan.
+2. **Tasks** — the concrete steps of the plan become GitHub issues (see the `todo` skill), so progress through the worktree/commit/PR flow below is tracked rather than held only in the plan.
 
 1. Sync main: `~/.claude/skills/agent-code-pusher/sync-main` — resets the local `main` to `origin/main` so the new branch starts from current upstream, not stale or dirty local state
-2. Create a worktree: `~/.claude/skills/agent-code-pusher/new-worktree <branch-name>` — prints the path. If this work is tracked by an atask task, name the branch `<task-id>-<short-description>` (e.g. `123-fix-login-redirect`).
+2. Create a worktree: `~/.claude/skills/agent-code-pusher/new-worktree <branch-name>` — prints the path. If this work is tracked by a GitHub issue, name the branch `<issue-number>-<short-description>` (e.g. `123-fix-login-redirect`).
 3. Enter it: `builtin cd <printed-path>` (plain literal `cd`, not the zoxide-aliased one — see "Shell navigation" below)
 4. Edit files normally — the session cwd is now the worktree. Every later step in this flow (test/lint, `git-commit`, `push-to-pr`) assumes cwd stays there, so don't `cd` elsewhere until step 11.
 5. Verify: run the relevant `mise run` test/lint tasks. Fix failures before continuing — never commit on a red build.
 6. Preview: for anything with visible behavior, start the dev/preview server (`mise run dev` or the app-specific task) — see the `run` skill. Don't skip this because tests passed; tests and a working preview catch different things. Open it for the user with `chrome-cli open <url>` so they can look at it themselves without having to ask where it is, then **stop and wait for the user to confirm it looks right**. Verifying the preview is the user's job, not the agent's — don't click through it yourself, don't declare it working, and don't proceed to commit until the user has actually looked and said so. If the change has no visible behavior (e.g. a pure backend/internal change), say so and proceed without waiting.
 7. Commit: `~/.claude/skills/agent-code-pusher/git-commit "<message>" <files...>`
 8. Push and open/update the PR in one step: `~/.claude/skills/agent-code-pusher/push-to-pr "<title>" "<body>"` — creates the PR on first push, updates its title/description on later pushes, and prints one JSON object on stdout: `{number, url, action}`
-9. If this work is tracked by an atask task, record the PR against it: `atask edit <task-id> --pr <url>`, taking `<url>` from step 8's JSON output (see the `todo` skill) so the link is stored clickable. Skip this if the work isn't tied to a task. Combined with claiming the task via `session:$CLAUDE_CODE_SESSION_ID` (see the `todo` skill), this is what makes a PR traceable back to the exact session that opened it: `atask ls --pr <number>` finds the task, and its claim history has the session reference.
+9. If this work is tracked by a GitHub issue, put `Closes #<issue-number>` (`Closes rn-ax/<repo>#<issue-number>` for an issue in another repo) in the PR body passed to `push-to-pr`, so GitHub links the PR to the issue and closes it on merge (see the `todo` skill). Combined with the claim comment carrying `session:$CLAUDE_CODE_SESSION_ID`, this makes a PR traceable back to the exact session that opened it.
 10. Keep the worktree until the PR is merged — fixes are often needed after the initial push
 11. Once merged: `builtin cd` back to the main repo root (the directory `sync-main`/`new-worktree` were originally run from), then `~/.claude/skills/agent-code-pusher/remove-worktree <branch-name>` — `git worktree remove` can't remove the directory that's currently the shell's cwd
 
@@ -61,10 +61,10 @@ Some app types extend this workflow with additional steps (e.g. a preview server
 
 While working a task you'll often notice unrelated things worth doing — a bug in nearby code, a missing test, a cleanup opportunity. Don't stop to fix them now; it dilutes focus and turns a single-purpose PR into a mixed one (see PR rules below).
 
-- Create a task for it instead: `atask add "<short imperative title>" --project <repo> --context side-quest` (see the `todo` skill at `~/.agents/skills/todo/SKILL.md` for conventions). This puts it on the shared task queue for later — it does not need to be acted on now.
-- Keep working on the current task — do not fix, refactor, or investigate the side-quest in the current PR.
-- Mention any new tasks you created in your end-of-turn summary so the user is aware of them.
-- Only the current task's own must-fix issues belong in the PR — everything else becomes its own task for later.
+- File an issue for it: `gh issue create -R rn-ax/<repo> --title "<short imperative title>"` (see the `todo` skill for conventions). It sits on the shared queue for later and needs no action now.
+- Keep working on the current issue — do not fix, refactor, or investigate the side-quest in the current PR.
+- Mention any new issues you filed in your end-of-turn summary so the user is aware of them.
+- Only the current task's own must-fix problems belong in the PR — everything else becomes its own issue for later.
 
 ## Commit message format
 
@@ -78,11 +78,11 @@ One-line subject only (imperative, ≤72 chars): `feat:`, `fix:`, `chore:`, `ref
 
 Use the `push-to-pr` script — it pushes and creates (or updates) the PR in one call. It always opens a regular, ready-for-review PR; `push-to-pr` itself has no `--draft` flag.
 
-Draft exists for exactly one case here: the PR is done and reviewable, but merging it now would be premature because it depends on a separate `atask` task that isn't done yet (e.g. work in another repo the cross-repo handoff flow filed — see the `todo` skill). That dependency is what makes draft safe to use: finishing the blocking task gives a concrete trigger to come back and undraft, so it doesn't just sit there. An `atask --blocked-by` link alone only stops an agent from autonomously picking up the follow-on work — it doesn't stop a human, or another agent, from clicking merge without checking `atask` first; draft closes that gap on GitHub's side.
+Draft exists for exactly one case here: the PR is done and reviewable, but merging it now would be premature because it depends on a separate issue that isn't closed yet (e.g. work in another repo the cross-repo handoff flow filed — see the `todo` skill). That dependency is what makes draft safe to use: closing the blocking issue gives a concrete trigger to come back and undraft, so it doesn't just sit there. A "blocked by" relationship alone only stops an agent from autonomously picking up the follow-on work — it doesn't stop a human, or another agent, from clicking merge without checking the issue first; draft closes that gap on GitHub's side.
 
 Don't reach for draft for "still in progress" or "not fully sure yet" — an unpushed worktree, or a pushed branch with no PR yet, already covers unfinished work with no undraft step to forget. A draft with nothing wired up to undraft it just becomes a stale PR someone else has to notice and fix manually.
 
-When you do use it: `gh pr ready <number> --undo` to convert, note the blocking task id in the PR body, and file the companion "merge once unblocked" task per the `todo` skill so undrafting has an owner. `gh pr ready <number>` (no `--undo`) flips it back once that task is done — do this yourself in the same pass that completes the blocking task, don't leave it as a separate step for someone else to remember.
+When you do use it: `gh pr ready <number> --undo` to convert, note the blocking issue in the PR body, and file the companion "merge once unblocked" issue per the `todo` skill so undrafting has an owner. `gh pr ready <number>` (no `--undo`) flips it back once that task is done — do this yourself in the same pass that closes the blocking issue, don't leave it as a separate step for someone else to remember.
 
 ```sh
 ~/.claude/skills/agent-code-pusher/push-to-pr "short title" "$(cat <<'EOF'
@@ -134,7 +134,7 @@ Worktrees live in a shared `~/Projects/.worktrees/<repo>/<branch>` directory rat
 - The user always stays on the `main` branch in their working tree — all editing happens inside worktrees.
 - After a PR merges, pull `main` to keep it current before creating the next worktree.
 - Never amend a published commit.
-- When the work is tracked by an atask task, prefix the branch/worktree name with that task's id: `<task-id>-<short-description>` (e.g. `123-fix-login-redirect`). This keeps `atask ls --pr <number>` and the worktree name pointing at the same task without having to cross-reference PR descriptions, and makes a leftover worktree's origin obvious at a glance during cleanup.
+- When the work is tracked by a GitHub issue, prefix the branch/worktree name with the issue number: `<issue-number>-<short-description>` (e.g. `123-fix-login-redirect`). This keeps the worktree name and the issue pointing at each other, and makes a leftover worktree's origin obvious at a glance during cleanup.
 - Never use `--no-verify` unless the user explicitly asks.
 - Never force-push.
 - If a pre-commit hook fails, fix the root cause and create a **new** commit — do not amend.
