@@ -2,6 +2,8 @@
 # Push the current branch and ensure a PR exists for it — creating it if
 # missing, or updating its title/description if it already exists.
 # Fetches and rebases onto origin/main first to avoid PR conflicts.
+# Every gh call targets origin's own owner/repo explicitly, so a fork's PR is
+# opened in the fork and never against its upstream.
 # Prints one JSON object on stdout as the final line — {number, url, action}
 # where action is "created", "updated", or "unchanged" — everything else
 # (git/gh's own progress output) goes to stderr. e.g.:
@@ -29,7 +31,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/scm-env" ""
 
 git fetch origin
 
-closed=$(gh pr list --state closed --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+closed=$(gh pr list -R "$OWNER/$REPO" --state closed --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
 if [[ -n "$closed" ]]; then
   echo "Warning: PR #$closed for branch '$branch' is already closed. A new PR will be opened." >&2
 fi
@@ -44,17 +46,17 @@ else
 fi
 
 action="unchanged"
-existing=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+existing=$(gh pr list -R "$OWNER/$REPO" --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
 if [[ -z "$existing" ]]; then
   title="${title:-$(git log -1 --format="%s")}"
-  gh pr create --title "$title" --body "$body" --base main >&2
-  existing=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
+  gh pr create -R "$OWNER/$REPO" --head "$branch" --title "$title" --body "$body" --base main >&2
+  existing=$(gh pr list -R "$OWNER/$REPO" --state open --head "$branch" --json number --jq '.[0].number // empty' 2>/dev/null)
   action="created"
 elif [[ -n "$title" || -n "$body" ]]; then
   edit_args=()
   [[ -n "$title" ]] && edit_args+=(--title "$title")
   [[ -n "$body" ]] && edit_args+=(--body "$body")
-  gh pr edit "$existing" "${edit_args[@]}" >&2
+  gh pr edit -R "$OWNER/$REPO" "$existing" "${edit_args[@]}" >&2
   action="updated"
 fi
 
