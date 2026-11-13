@@ -1,13 +1,13 @@
 ---
 name: sveltekit
-description: Use whenever building or changing a SvelteKit 3 frontend — configuration, imports, Svelte 5 state, a static single-page build served by another server, component tests with vitest, or Playwright end-to-end and screenshot tests. Holds the version-specific behavior that is easy to get wrong, as established building rn-ax apps.
+description: Use whenever building or changing a SvelteKit 3 frontend — configuration, imports, Svelte 5 state, a static single-page build served by another server, or component tests with vitest. Holds the version-specific behavior that is easy to get wrong, as established building rn-ax apps.
 ---
 
 # SvelteKit
 
 Facts here were established on SvelteKit 3 with Svelte 5.
 
-**Related systems**: `pocketbase` (the backend that serves these apps' static build), `spec-driven-dev` (how the apps are specified and shipped).
+**Related systems**: `pocketbase` (the backend that serves these apps' static build), `playwright` (end-to-end and screenshot tests), `spec-driven-dev` (how the apps are specified and shipped).
 
 ## Configuration and imports
 
@@ -32,5 +32,3 @@ The `tab-content` class hides panels it does not manage, so tab panels are plain
 ## Tests
 
 - Component tests run in jsdom without SvelteKit, and its virtual `$app/*` modules are aliased to mocks.
-- Playwright screenshot baselines are recorded in the pinned Playwright container as linux/amd64, because Chromium renders the same pixels only inside one pinned image and CPU architecture. The image tag equals the `@playwright/test` version.
-- The Playwright container runs as the invoking user with `HOME=/tmp`, so nothing root-owned lands in the workspace and a runner's next checkout can clean it.
