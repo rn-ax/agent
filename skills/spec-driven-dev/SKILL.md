@@ -53,6 +53,8 @@ How they are built:
 - A merge made with `GITHUB_TOKEN` starts no workflows, except `workflow_dispatch` and `repository_dispatch`, so the follow-up run on the default branch is started with `gh workflow run`.
 - The running version makes the backup, so it holds the state from before the deploy. An app with a built-in backup API (PocketBase) uses it, since a plain copy of a SQLite file can tear while the app writes.
 - Rollback discards the writes made after the deploy, which suits a single-user app and needs a different design for anything with many writers.
+- A repo with several SQLite databases backs up each of them in the one step before a deploy, and its `AGENTS.md` names them and where they live. A backup of an app that is not PocketBase is made with SQLite's own backup command, run where the database is open.
+- State that is not in a database, such as files on a dataset, is outside the backup and the rollback. When the databases only cache what those files say, a rollback leaves the files as they are.
 
 `rn-ax/trotter` is the first implementation.
 
