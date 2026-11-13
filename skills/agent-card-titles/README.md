@@ -64,14 +64,14 @@ Two problems it fixes at once:
 
 ## Requirements
 
-Node.js (any recent version) and Claude Code. Works on Windows, macOS and Linux.
+Python 3.11 or newer (standard library only) and Claude Code. Works on Windows, macOS and Linux.
 
 ## Install
 
-Put `agent-card-titles.js` and `install.js` in a folder you will keep, then:
+Put `agent-card-titles.py` and `install.py` in a folder you will keep, then:
 
 ```bash
-node install.js --recompute
+python3 install.py --recompute
 ```
 
 `--recompute` retitles every card you already have, so the view is useful immediately instead
@@ -87,11 +87,11 @@ double-registers, and it backs the file up to `settings.json.bak` first.
 | `--uninstall` | Remove the hooks (card titles stay as they are) |
 | `--dry-run` | Print the resulting settings.json without writing |
 | `--home <dir>` | Operate on another `.claude` dir (default `$CLAUDE_CONFIG_DIR` or `~/.claude`) |
-| `--node <path>` | Executable to run the hook with (default: the node running the installer) |
+| `--python <path>` | Executable to run the hook with (default: the Python running the installer) |
 
 ## Tuning
 
-Both knobs live at the top of `agent-card-titles.js`. Re-run `node install.js --recompute`
+Both knobs live at the top of `agent-card-titles.py`. Re-run `python3 install.py --recompute`
 to apply a change to cards you already have.
 
 **`TITLE_MAX`** — label budget after the chips (default `48`). Raise it for more context per
@@ -173,7 +173,7 @@ Sorting uses `sortOrder` / `stateSortOrder` — optional numeric fields on each 
 
 ## Caveats
 
-- The `UserPromptSubmit` hook runs on every prompt and costs one Node startup (~50–100 ms).
+- The `UserPromptSubmit` hook runs on every prompt and costs one Python startup (~50–100 ms).
 - It reads `~/.claude/jobs/*/state.json`, which is an internal file the CLI does not promise
   to keep stable. Verified against CLI 2.1.229. If a future version changes the shape, the
   script degrades to doing nothing rather than corrupting anything.

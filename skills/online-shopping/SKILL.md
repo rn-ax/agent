@@ -40,7 +40,7 @@ The user lives in Åland, outside the EU VAT area, so every recommendation of wh
 - `--text` returns the body's `innerText`, which is where prices are read on shops whose result tiles carry them.
 - `--wait <ms>` adds time after network idle for late requests (default 2000).
 
-Playwright and Chromium install into `~/.cache/online-shopping` on first use (one run at a time; a parallel first run races the install). Progress goes to stderr, so `2>/dev/null` keeps stdout clean for `jq`. Searches for several shops can run in parallel afterwards.
+`shop-browse` is a `uv` script that provides Playwright itself; the first run also downloads Chromium (one run at a time; a parallel first run races the download). Progress goes to stderr, so `2>/dev/null` keeps stdout clean for `jq`. Searches for several shops can run in parallel afterwards.
 
 ## Investigations
 

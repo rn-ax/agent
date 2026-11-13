@@ -1,26 +1,92 @@
-#!/usr/bin/env bash
-# Headless Chromium for client-rendered shop pages. Prints one JSON object on stdout.
-# Usage: shop-browse <url> [--links <href-substring>] [--json] [--text] [--wait <ms>]
-#   shop-browse 'https://www.verkkokauppa.com/fi/search?query=laturi' --links /product/
-#   shop-browse 'https://www.clasohlson.com/fi/search?text=laturi' --json
-#
-# Output: {url, title, links?, json?, text?}
-#   --links <substr>  anchors whose href contains <substr>: [{text, href}], tracking fragments dropped
-#   --json            JSON responses the page loaded: [{status, url}] (the shop's own API endpoints)
-#   --text            body innerText, for reading prices off a rendered page
-#   --wait <ms>       extra wait after network idle for late XHRs (default 2000)
-# Without a flag, only url and title are printed.
-#
-# Playwright and its Chromium live in ~/.cache/online-shopping, installed on first use.
-set -euo pipefail
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["playwright>=1.50,<2"]
+# ///
+"""Headless Chromium for client-rendered shop pages. Prints one JSON object on stdout.
 
-dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/online-shopping"
+Usage: shop-browse <url> [--links <href-substring>] [--json] [--text] [--wait <ms>]
+  shop-browse 'https://www.verkkokauppa.com/fi/search?query=laturi' --links /product/
+  shop-browse 'https://www.clasohlson.com/fi/search?text=laturi' --json
 
-if [ ! -d "$cache/node_modules/playwright" ]; then
-	mkdir -p "$cache"
-	echo "Installing Playwright into $cache (first run)..." >&2
-	(cd "$cache" && npm init -y >/dev/null && npm i playwright >&2 && npx playwright install chromium >&2)
-fi
+Output: {url, title, links?, json?, text?}
+  --links <substr>  anchors whose href contains <substr>: [{text, href}], tracking fragments dropped
+  --json            JSON responses the page loaded: [{status, url}] (the shop's own API endpoints)
+  --text            body innerText, for reading prices off a rendered page
+  --wait <ms>       extra wait after network idle for late XHRs (default 2000)
+Without a flag, only url and title are printed.
 
-NODE_PATH="$cache/node_modules" exec node "$dir/shop-browse.mjs" "$@"
+Chromium is downloaded by Playwright on first use (progress on stderr); run one instance at
+a time until it exists, since parallel first runs race the download. Exit codes: 0 success,
+1 the page could not be loaded, 2 usage error.
+"""
+import argparse
+import json
+import re
+import subprocess
+import sys
+
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import sync_playwright
+
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+)
+
+LINKS_JS = """as => as.map(a => ({
+    text: a.textContent.trim().replace(/\\s+/g, ' ').slice(0, 120),
+    href: a.href.split('#')[0],
+}))"""
+
+parser = argparse.ArgumentParser(prog="shop-browse")
+parser.add_argument("url")
+parser.add_argument("--links", default=None)
+parser.add_argument("--json", action="store_true")
+parser.add_argument("--text", action="store_true")
+parser.add_argument("--wait", type=int, default=2000)
+args = parser.parse_args()
+
+
+def launch(pw):
+    try:
+        return pw.chromium.launch()
+    except PlaywrightError as e:
+        if "Executable doesn't exist" not in str(e):
+            raise
+    print("Installing Chromium for Playwright (first run)...", file=sys.stderr)
+    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], stdout=sys.stderr, check=True)
+    return pw.chromium.launch()
+
+
+with sync_playwright() as pw:
+    browser = launch(pw)
+    try:
+        page = browser.new_context(locale="fi-FI", user_agent=USER_AGENT).new_page()
+        responses = []
+        page.on("response", lambda r: responses.append({"status": r.status, "url": r.url})
+                if re.search("json", r.headers.get("content-type", "")) else None)
+
+        # Some shops never reach network idle (analytics, polling); fall back to what loaded.
+        page.goto(args.url, wait_until="domcontentloaded", timeout=60000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=20000)
+        except PlaywrightError:
+            pass
+        page.wait_for_timeout(args.wait)
+
+        out = {"url": page.url, "title": page.title()}
+        if args.links is not None:
+            seen = set()
+            out["links"] = []
+            for link in page.eval_on_selector_all("a[href]", LINKS_JS):
+                if link["text"] and args.links in link["href"] and link["href"] not in seen:
+                    seen.add(link["href"])
+                    out["links"].append(link)
+        if args.json:
+            out["json"] = responses
+        if args.text:
+            out["text"] = page.evaluate("document.body.innerText")
+        sys.stdout.buffer.write((json.dumps(out, ensure_ascii=False) + "\n").encode("utf-8"))
+    finally:
+        browser.close()
