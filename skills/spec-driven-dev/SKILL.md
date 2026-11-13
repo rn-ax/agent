@@ -17,10 +17,11 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 ## Acceptance criteria
 
-- Criteria are the rules the software must satisfy. When a rule changes, the criterion changes, and the implementation follows.
-- They are stored as [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept files: markdown with YAML frontmatter, where `type` is the one required key and `title`, `description` and `tags` are the recommended ones.
-- The directory is flat, with names that describe the rule and carry no dates.
-- A criterion states behavior that can be checked. One that cannot be checked is a defect in the criterion.
+- A rule the software must satisfy is an acceptance criterion `AC-<n>`: one line that is compact, concise, independent of the others, and states behavior that can be checked. One that cannot be checked is a defect in the criterion.
+- A criterion is immutable. It is deleted when it no longer applies and never edited; changing a rule means deleting the criterion and adding a new one with a new number. A deleted number is never reused.
+- Criteria live in `spec/`, grouped into files by the context they apply to. A criterion may move between files. When a file grows too big, find the groups in it and split it along them.
+- Each file is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept file: markdown with YAML frontmatter (`type` is the one required key, `title` and `description` are recommended) followed by the list `- AC-<n>: <rule>`.
+- A test that proves a criterion carries `[AC-<n>]` in its title.
 - Domain facts that explain what the app's concepts mean stay in the app's `DOMAIN.md`.
 
 ## Method
