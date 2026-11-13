@@ -61,7 +61,9 @@ When a domain decision lands mid-task (the user settles what an entity means, co
 
 ### README
 
-Setup and usage instructions for people, when the project has one.
+Setup and usage instructions for people, when the project has one: what the project is in a sentence, how to install the tools and run it, how to run the tests, and the configuration a person must supply (environment variables, credentials, repository settings) with what each is for.
+
+It stays short. What a reader sees by looking at the repository stays out: directory layouts, lists of tasks (the task runner lists them), pinned versions, and how a pipeline or an image is built. A reason that belongs to one setting is a comment at that setting.
 
 ## A comment explains one setting; AGENTS.md explains how things fit
 
