@@ -24,7 +24,7 @@ verify. Never try to "do" the retitling conversationally.
 ## Install
 
 ```bash
-node install.js --recompute
+python3 install.py --recompute
 ```
 
 Then tell the user to **restart Claude Code or open `/hooks` once** — the settings watcher
@@ -35,11 +35,11 @@ then. Do not report the install as working before that happens.
 
 | Request | Do |
 |---|---|
-| "install it" | `node install.js --recompute` |
-| "remove it" | `node install.js --uninstall` |
-| "titles too long/short" | Edit `TITLE_MAX` in `agent-card-titles.js`, then `node install.js --recompute` |
-| "refresh all cards now" | `node install.js --recompute` |
-| "show me what it'd change" | `node install.js --dry-run` |
+| "install it" | `python3 install.py --recompute` |
+| "remove it" | `python3 install.py --uninstall` |
+| "titles too long/short" | Edit `TITLE_MAX` in `agent-card-titles.py`, then `python3 install.py --recompute` |
+| "refresh all cards now" | `python3 install.py --recompute` |
+| "show me what it'd change" | `python3 install.py --dry-run` |
 | "it isn't working" | See Troubleshooting |
 
 ## Troubleshooting
@@ -47,11 +47,11 @@ then. Do not report the install as working before that happens.
 Check in this order:
 
 1. **Hooks registered?** Read `~/.claude/settings.json` and confirm three entries whose
-   `args` contain `agent-card-titles.js`. If absent, the installer never ran.
+   `args` contain `agent-card-titles.py`. If absent, the installer never ran.
 2. **Session restarted?** Newly added hooks do not fire in an already-running session.
-3. **Script healthy?** `node --check agent-card-titles.js`, then feed it a payload directly:
+3. **Script healthy?** Feed it a payload directly:
    ```bash
-   echo '{"hook_event_name":"UserPromptSubmit","session_id":"<id>","cwd":"<project>"}' | node agent-card-titles.js
+   echo '{"hook_event_name":"UserPromptSubmit","session_id":"<id>","cwd":"<project>"}' | python3 agent-card-titles.py
    ```
    It must print exactly one JSON object with `hookSpecificOutput.sessionTitle`. Any other
    stdout text would be injected into the user's prompt as context.
