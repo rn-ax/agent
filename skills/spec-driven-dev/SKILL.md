@@ -28,27 +28,28 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 ## Method
 
-1. Identify the criteria together: the agent proposes them in plain sentences, Samuel corrects, and the result is written to the criteria files.
-2. Implement against them. There is no separate implementation plan, because the criteria are the plan and the agent decides the files, names and structure.
-3. Verify every criterion in CI before anything merges.
+1. Find the files that apply: `rg -l` over the frontmatter in `spec/` (`tags:` and `description:` lines). Read their context and criteria before proposing anything.
+2. Identify the criteria together: the agent proposes them in plain sentences, Samuel corrects, and the result is written to the functionality's file. A new functionality gets its own file when it is large enough, and `general.md` takes the rest. A rule that changes is deleted and added again under a new number.
+3. Implement against the criteria. There is no separate implementation plan, because the criteria are the plan and the agent decides the files, names and structure. Each criterion gets its own tests, tagged with its ID; a test that checks two criteria is split.
+4. Verify every criterion in CI before anything merges.
 
-## The gate
+Where other information lives: what the concepts mean in `DOMAIN.md`, technical constraints and non-obvious gotchas in `AGENTS.md`, why a choice was made and which approaches were rejected in the pull request description.
 
-CI runs the full suite on every branch push. When the checks pass, the PR merges itself (squash), and CI on `main` builds, tests and deploys the merged commit.
+## Delivery
 
-- On GitHub Free a private repo has no branch protection or rulesets, so the gate is workflow logic that nothing enforces against a direct push. A Team plan enforces it with required checks, native auto-merge and a merge queue; moving there changes where the gate lives and leaves the method alone.
+A repo that uses the method states its delivery rules as criteria in `spec/delivery.md`: pull requests merge themselves when CI passes, a merge to `main` deploys, every deploy is preceded by a database backup, and a faulty deploy is rolled back with that backup. The notes below are how that is built.
+
+- CI runs the full suite on every branch push. A passing PR is squash-merged, and CI on `main` builds, tests and deploys the merged commit.
+- On GitHub Free a private repo has no branch protection or rulesets, so the merge gate is workflow logic that nothing enforces against a direct push. A Team plan enforces it with required checks, native auto-merge and a merge queue; moving there changes where the gate lives and leaves the method alone.
 - A merge made with `GITHUB_TOKEN` starts no workflows, except `workflow_dispatch` and `repository_dispatch`, so the follow-up run on `main` is started with `gh workflow run`.
-
-## Backup and rollback
-
-- **Every deploy is preceded by a backup** of the SQLite database, a copy with a UTC timestamp suffix. The running version makes it, so it holds the state from before the deploy. An app with a built-in backup API (PocketBase) uses it, since a plain copy of a SQLite file can tear while the app writes. A failed backup stops the deploy.
-- **Rollback** runs the previous version against the database restored from the backup made before the failed deploy. Writes made after that deploy are discarded, which suits a single-user app and needs a different design for anything with many writers.
+- The running version makes the backup, so it holds the state from before the deploy. An app with a built-in backup API (PocketBase) uses it, since a plain copy of a SQLite file can tear while the app writes.
+- Rollback discards the writes made after the deploy, which suits a single-user app and needs a different design for anything with many writers.
 
 ## Working with the superpowers plugin
 
 The plugin's `brainstorming` and `writing-plans` skills default to dated design documents under `docs/superpowers/specs/` and implementation plans under `docs/superpowers/plans/`. This workflow takes precedence over those defaults:
 
-- The result of brainstorming is the criteria files, in the flat directory. It produces no dated design document.
+- The design that brainstorming produces is the functionality's file in `spec/`, with its context and criteria. Approaches considered go in the pull request description.
 - After Samuel approves the criteria, implementation starts directly, test-first per criterion. The `writing-plans` step is skipped.
 - Criteria files and the repo's docs name no plugin; how the plugin is used lives only in this skill.
 
