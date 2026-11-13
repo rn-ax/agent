@@ -19,8 +19,10 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 - A rule the software must satisfy is an acceptance criterion `AC-<n>`: one line that is compact, concise, independent of the others, and states behavior that can be checked. One that cannot be checked is a defect in the criterion.
 - A criterion is immutable. It is deleted when it no longer applies and never edited; changing a rule means deleting the criterion and adding a new one with a new number. A deleted number is never reused.
-- Criteria live in `spec/`. They start in a single file. When a file grows too big, find the two groups in it that divide it best and split it into exactly those two files, named for the context each applies to. A criterion may move between files.
-- Each file is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept file: markdown with YAML frontmatter (`type` is the one required key, `title` and `description` are recommended) followed by the list `- AC-<n>: <rule>`.
+- Criteria live in `spec/`. Each discrete functionality has its own file, `spec/<functionality>.md`, holding everything known about it. `spec/general.md` holds everything that is not large enough for a file of its own. When a part of `general.md` grows large enough, it moves into a new functionality file. A criterion may move between files.
+- Each file is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept file: markdown with YAML frontmatter (`type` is the one required key, `title` and `description` are recommended; `description` is the one-line intent) and two sections, `# Context` above `# Criteria`.
+- `# Context` holds why the functionality exists and what is out of scope, as it is now: it is edited when it changes, carries no dates and records no history. A choice is written down only when it stops someone taking a wrong turn; how a choice was reached stays in the pull request and git history.
+- `# Criteria` is the list `- AC-<n>: <rule>`.
 - A test relates to exactly one criterion and carries its `[AC-<n>]` in the title. A criterion can have several tests.
 - Domain facts that explain what the app's concepts mean stay in the app's `DOMAIN.md`.
 
