@@ -33,4 +33,5 @@ The `tab-content` class hides panels it does not manage, so tab panels are plain
 
 - Component tests run in jsdom without SvelteKit, and its virtual `$app/*` modules are aliased to mocks.
 - Playwright screenshot baselines are recorded in the pinned Playwright container as linux/amd64, because Chromium renders the same pixels only inside one pinned image and CPU architecture. The image tag equals the `@playwright/test` version.
+- The Playwright image is published for amd64 and arm64. A run on a machine of the other architecture uses the image natively, because emulating amd64 is several times slower, and compares with a pixel tolerance chosen from `process.arch`. The amd64 run in CI compares with zero tolerance and is the gate, and baselines are only re-recorded on amd64.
 - The Playwright container runs as the invoking user with `HOME=/tmp`, so nothing root-owned lands in the workspace and a runner's next checkout can clean it.
