@@ -33,7 +33,7 @@ Common agent shape: `henrygd/beszel-agent`, `network_mode: host`, `/var/run/dock
 | System | Deployed as | Token lives in |
 |---|---|---|
 | `TrueNAS` | TrueNAS custom app `beszel-agent` on the `henrygd/beszel-agent-nvidia:<version>-slim` image (compose in the app config, `HUB_URL=http://192.168.1.142:30333`, state in `Storage/Logs/beszel/agent-data`) | the app's compose config on TrueNAS |
-| `Contabo 1`, `Contabo 2` | `apps/beszel-agent` in `~/Projects/rn-infra`, deployed by the generic `app` role (`mise run apps`), `HUB_URL=http://truenas.lan:30333` over the WARP private-network route | ansible-vault, `inventory/group_vars/app_hosts/vault.yml` (`beszel_agent_token`) |
+| `Contabo 1`, `Contabo 2` | `apps/beszel-agent` in `~/Projects/rn-infra`, deployed by the generic `app` role (`mise run apps`), `HUB_URL=http://truenas.machine.rn.ax:30333` over the WARP private-network route | ansible-vault, `inventory/group_vars/app_hosts/vault.yml` (`beszel_agent_token`) |
 
 To add a host: another `beszel-agent` entry in rn-infra's `apps` list for a Contabo-style box, or a custom app on TrueNAS following the install playbook in the `truenas` skill (own the mount ownership yourself; a custom app gets no automatic permissions help).
 

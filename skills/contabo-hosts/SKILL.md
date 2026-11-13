@@ -13,13 +13,13 @@ Two Contabo Debian VPS boxes (`contabo-1` / `contabo-2`, Cloud VPS 6 tier — 6 
 
 ## Connectivity to the home LAN
 
-Both boxes run Cloudflare WARP as an unattended Zero Trust client (`cloudflare_warp` role), enrolled via `mdm.xml` MDM parameters. The Zero Trust org's Split Tunnel Include already routes `192.168.1.142` (TrueNAS's LAN IP) directly by IP — so both boxes can reach TrueNAS's LAN services with no separate tunnel/service-token setup needed. WARP doesn't resolve `.lan` hostnames itself, so the role pins `truenas.lan` to that IP in `/etc/hosts`.
+Both boxes run Cloudflare WARP as an unattended Zero Trust client (`cloudflare_warp` role), enrolled via `mdm.xml` MDM parameters. The Zero Trust org's Split Tunnel Include already routes `192.168.1.142` (TrueNAS's LAN IP) directly by IP — so both boxes can reach TrueNAS's LAN services with no separate tunnel/service-token setup needed. The boxes reach it by the public DNS name `truenas.machine.rn.ax`, an A record for that LAN IP (`server.machine.rn.ax` is the same for the Server Mac mini), so no `/etc/hosts` entry is needed; CI variables and app configuration on the boxes use that name, not `truenas.lan`.
 
-**Confirmed live (2026-09-27)**: `curl http://truenas.lan:30155/api/version` (Windmill's LAN endpoint) returns `200` directly from both boxes, no proxy or extra auth needed. This means **any self-hosted-runner job on these boxes has a direct path to TrueNAS-hosted services** — a GitHub-hosted runner does not, and has to go the long way through whatever public/Access-gated hostname the service exposes.
+`curl http://truenas.machine.rn.ax:30155/api/version` (Windmill's LAN endpoint) returns `200` directly from both boxes, no proxy or extra auth needed. This means **any self-hosted-runner job on these boxes has a direct path to TrueNAS-hosted services** — a GitHub-hosted runner does not, and has to go the long way through whatever public/Access-gated hostname the service exposes.
 
 The `windmill` skill previously described Contabo→TrueNAS job-execution connectivity as "planned, not yet built" with a separate TCP-application-plus-service-token plan for reaching Postgres specifically — that note was stale. The general WARP private-network route already covers it; no dedicated Postgres-specific Access application has been (or needs to be) built for this.
 
-`git-internal.rn.ax:30022` (a Gitea-specific hostname `gitea_runner` also depends on) is being torn down in favor of routing to `truenas.lan` directly — don't build new dependencies on `git-internal.rn.ax`.
+A connection from a box to TrueNAS that fails with `No route to host` while `warp-cli status` reports Connected means the TrueNAS tunnel is down, because the `cloudflared` app on TrueNAS is stopped. The tunnel shows `down` with no connections (`cf-api GET /accounts/<acct>/cfd_tunnel`) and the app shows `STOPPED` (`tn-api app.query '[["name","=","cloudflared"]]'`). Start it with `app.start`. Every public `*.rn.ax` hostname served by that tunnel is down at the same time.
 
 ## Runners: two independent systems
 
