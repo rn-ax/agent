@@ -33,6 +33,8 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 3. Implement against the criteria. There is no separate implementation plan, because the criteria are the plan and the agent decides the files, names and structure. Each criterion gets its own tests, tagged with its ID; a test that checks two criteria is split.
 4. Verify every criterion in CI before anything merges.
 
+The spec changes first. Criteria are written and approved before the code that satisfies them, and a change to the method is made in this skill before any repo is changed to follow it.
+
 Where other information lives: what the concepts mean in `DOMAIN.md`, technical constraints and non-obvious gotchas in `AGENTS.md`, why a choice was made and which approaches were rejected in the pull request description.
 
 ## Delivery
