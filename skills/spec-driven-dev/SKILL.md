@@ -21,7 +21,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 - A criterion is immutable. It is deleted when it no longer applies and never edited; changing a rule means deleting the criterion and adding a new one with a new number. A deleted number is never reused.
 - Criteria live in `spec/`. They start in a single file. When a file grows too big, find the two groups in it that divide it best and split it into exactly those two files, named for the context each applies to. A criterion may move between files.
 - Each file is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) concept file: markdown with YAML frontmatter (`type` is the one required key, `title` and `description` are recommended) followed by the list `- AC-<n>: <rule>`.
-- A test that proves a criterion carries `[AC-<n>]` in its title.
+- A test relates to exactly one criterion and carries its `[AC-<n>]` in the title. A criterion can have several tests.
 - Domain facts that explain what the app's concepts mean stay in the app's `DOMAIN.md`.
 
 ## Method
