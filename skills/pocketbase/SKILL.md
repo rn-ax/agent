@@ -34,6 +34,11 @@ Facts here were established on PocketBase 0.40.5, the version the apps pin in `m
 
 PocketBase serves a static build from its public directory (`--publicDir`), so the image holds no Node or Bun.
 
+## Backups
+
+- A backup is made through PocketBase's built-in backup API, because a plain copy of a SQLite file can tear while the app writes.
+- The running version makes the backup before a deploy replaces it, so the backup holds the state from before the deploy.
+
 ## Tests
 
 - Integration and end-to-end suites start a real PocketBase on an empty temporary data directory with the app's migrations and hooks, and create a superuser with `superuser upsert --dir`.

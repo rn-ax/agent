@@ -53,6 +53,12 @@ In one real incident, both fixes above left the runner's diagnostic log looking 
 
 The tradeoff: a repo-level runner only serves that one repo, not the whole org, so this isn't free if other repos were relying on the same shared org-level pool — provision/convert enough runners to cover them, or accept that repo gets dedicated capacity going forward.
 
+## Automatic merge and deploy
+
+- CI runs the full suite on every branch push. A passing PR is squash-merged, and CI on the default branch builds, tests and deploys the merged commit.
+- On GitHub Free a private repo has no branch protection or rulesets, so the merge gate is workflow logic that nothing enforces against a direct push. A Team plan enforces it with required checks, native auto-merge and a merge queue, which changes where the gate lives.
+- A merge made with `GITHUB_TOKEN` starts no workflows, except `workflow_dispatch` and `repository_dispatch`, so the follow-up run on the default branch is started with `gh workflow run`.
+
 ## Verify credentials on a new or newly-deployed repo
 
 A new repo's CI can look fully green while its actual deploy step silently no-ops or crashes, because the job that needs a secret runs last and the earlier jobs (lint, tests, validation) pass regardless of whether that secret exists. `secrets: inherit` from a caller to a reusable workflow only passes through what's actually visible to the caller; a name the callee expects but the caller can't see resolves to an empty string, not a missing-secret error — the failure surfaces later, inside whatever script tries to use that empty value (e.g. a URL parse crashing on a string with no `://` in it), not at the point secrets are resolved.
