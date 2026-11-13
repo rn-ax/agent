@@ -21,8 +21,6 @@ The `windmill` skill previously described Contabo→TrueNAS job-execution connec
 
 A connection from a box to TrueNAS that fails with `No route to host` while `warp-cli status` reports Connected means the TrueNAS tunnel is down, because the `cloudflared` app on TrueNAS is stopped. The tunnel shows `down` with no connections (`cf-api GET /accounts/<acct>/cfd_tunnel`) and the app shows `STOPPED` (`tn-api app.query '[["name","=","cloudflared"]]'`). Start it with `app.start`. Every public `*.rn.ax` hostname served by that tunnel is down at the same time.
 
-`git-internal.rn.ax:30022` (a Gitea-specific hostname `gitea_runner` also depends on) is being torn down in favor of routing to `truenas.machine.rn.ax` directly — don't build new dependencies on `git-internal.rn.ax`.
-
 ## Runners: two independent systems
 
 Both boxes run **two separate runner stacks side by side**, unrelated to each other:
