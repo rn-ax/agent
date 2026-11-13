@@ -30,7 +30,7 @@ An operational note ("use X, not Y", "this fails when...") should read as a fact
 
 ## What each file holds
 
-Each app or repository keeps `AGENTS.md`, `DOMAIN.md` and the README scoped to their own concern, and the concerns stay separate. Task tracking (what is done, what is next) goes through `atask` per the `todo` skill, not a markdown file.
+Each app or repository keeps `AGENTS.md`, `DOMAIN.md` and the README scoped to their own concern, and the concerns stay separate. Task tracking (what is done, what is next) lives in GitHub issues per the `todo` skill.
 
 ### AGENTS.md
 

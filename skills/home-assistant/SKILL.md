@@ -45,7 +45,7 @@ New Zigbee devices pair through ZHA (Settings → Devices & Services → ZHA →
 
 ## Router monitoring/control project
 
-Tracked as atask 185 (parent) and its children — check `atask show 185` for current status rather than assuming this file has it. The integration itself lives in `rn-ax/ha-inteno-router`.
+The integration lives in `rn-ax/ha-inteno-router`; its issues and PRs hold the current status.
 
 ## HomeKit Bridge
 
