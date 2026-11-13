@@ -46,7 +46,7 @@ When an `AGENTS.md` grows, each fact either moves to the nested file of the comp
 
 ### DOMAIN.md
 
-Stable business knowledge: what the real-world concepts of the app mean and what must always hold about them. It lives at the root of the app's directory (`apps/<app>/DOMAIN.md` in monocoque, the repository root elsewhere), changes rarely, and describes the problem, not the code or its implementation status.
+Stable business knowledge: what the real-world concepts of the app mean and what must always hold about them. A repo that is developed spec-first has no `DOMAIN.md`: the meaning of its concepts is the `# Context` of its `spec/` files, and what must always hold is written there as acceptance criteria. A domain decision that lands mid-task is written into the spec file first, and the rest of this section applies to repos that keep a `DOMAIN.md`. It lives at the root of the app's directory (`apps/<app>/DOMAIN.md` in monocoque, the repository root elsewhere), changes rarely, and describes the problem, not the code or its implementation status.
 
 A question like "can a Tab exist without a Song?" belongs here. A question like "which view handles tab upload?" belongs in the code or `AGENTS.md`.
 
