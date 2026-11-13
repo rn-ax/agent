@@ -4,7 +4,7 @@ Each app keeps these docs scoped to their own concern — don't mix them. Task t
 
 ## AGENTS.md
 
-Technical/architecture conventions for coding agents: stack, patterns, gotchas, non-obvious constraints. Agent-agnostic — readable by any coding tool, not just Claude.
+Technical/architecture conventions for coding agents: stack, patterns, gotchas, non-obvious constraints, and how the parts fit together. Agent-agnostic — readable by any coding tool, not just Claude. The reason for one setting's value is a comment on that line in its own file, not an entry here.
 
 ## DOMAIN.md
 
