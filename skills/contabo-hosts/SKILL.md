@@ -1,6 +1,6 @@
 ---
 name: contabo-hosts
-description: Use whenever a task touches the two Contabo VPS boxes (contabo-1/contabo-2) — provisioning them, GitHub Actions or Gitea Actions self-hosted runners, their Cloudflare WARP/Tunnel setup, or anything about deciding whether a private rn-ax repo's CI should run there instead of GitHub-hosted runners. This is the accumulating knowledge base for how these boxes are actually set up, so read it before assuming their connectivity, runner conventions, or IaC from scratch.
+description: Use whenever a task touches the two Contabo VPS boxes (contabo-1/contabo-2) — provisioning them, GitHub Actions self-hosted runners, their Cloudflare WARP/Tunnel setup, or anything about deciding whether a private rn-ax repo's CI should run there instead of GitHub-hosted runners. This is the accumulating knowledge base for how these boxes are actually set up, so read it before assuming their connectivity, runner conventions, or IaC from scratch.
 ---
 
 # Contabo hosts
@@ -21,12 +21,9 @@ The `windmill` skill previously described Contabo→TrueNAS job-execution connec
 
 A connection from a box to TrueNAS that fails with `No route to host` while `warp-cli status` reports Connected means the TrueNAS tunnel is down, because the `cloudflared` app on TrueNAS is stopped. The tunnel shows `down` with no connections (`cf-api GET /accounts/<acct>/cfd_tunnel`) and the app shows `STOPPED` (`tn-api app.query '[["name","=","cloudflared"]]'`). Start it with `app.start`. Every public `*.rn.ax` hostname served by that tunnel is down at the same time.
 
-## Runners: two independent systems
+## Runners
 
-Both boxes run **two separate runner stacks side by side**, unrelated to each other:
-
-- **Gitea Actions** (`act_runner`, role `gitea_runner`) — Docker-executor based, jobs run in containers (`catthehacker/ubuntu:act-*` images — act_runner's own fallback image is missing Node.js, which is why labels are registered with an explicit `:docker://` image rather than left bare). Capacity 4 concurrent jobs per box, sized against `monocoque`'s actual CI weight (see `inventory/group_vars/runners/vars.yml`'s comments for the reasoning).
-- **GitHub Actions self-hosted runner** (native process, not containerized — role `github_runner`) — this is the one relevant to "should this repo's CI run on Contabo" questions. See below.
+Both boxes run GitHub Actions self-hosted runners as native processes (role `github_runner`). This is what "should this repo's CI run on Contabo" questions are about. See below.
 
 ## GitHub Actions runner convention: repo-scoped, not org-level
 
@@ -56,11 +53,7 @@ The registration token is repo-scoped (different endpoint from the org one), exp
 
 ## Resource headroom
 
-As of 2026-09-27: ~85–106GB disk free and ~9GB RAM available on each box even with `act_runner` (capacity 4) plus three native GitHub runner instances running. Light CI workloads (deploy pushes, image mirrors, app builds) fit comfortably; re-check headroom before adding anything heavier (e.g. a fourth or fifth repo's runner, or raising `gitea_runner_capacity`).
-
-## Known documentation gap
-
-`rn-infra`'s `AGENTS.md` and the `cloudflare_warp`/`gitea_runner` roles' own comments point Gitea-runner-specific operational knowledge (registration token retrieval, naming vs. the `rutinerad-mini`/`Server`/`TrueNAS` Gitea runners, troubleshooting) at `~/.claude/skills/gitea/references/contabo-runner-operations.md` — **that skill does not exist on this machine.** Either it was never created, or it exists only on a different machine/session and never synced here. This file (`contabo-hosts`) covers the GitHub-Actions-runner side of things instead; the Gitea-side operational detail those references promise is still genuinely undocumented if it's ever needed.
+Light CI workloads (deploy pushes, image mirrors, app builds) fit comfortably next to the native GitHub runner instances on each box. Check `df -h /` and `free -m` on the box before adding anything heavier, such as another repo's runner.
 
 ## Related systems
 
