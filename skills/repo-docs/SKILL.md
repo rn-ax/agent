@@ -1,6 +1,6 @@
 ---
 name: repo-docs
-description: Use whenever writing or editing a repository's own documentation — README.md, AGENTS.md, CLAUDE.md, or the repo's description/topics on GitHub — for guidance on writing content that stays accurate as the project changes, rather than freezing a snapshot of today's feature set.
+description: Use whenever writing or editing a repository's own documentation — README.md, AGENTS.md, DOMAIN.md, CLAUDE.md, code comments in configuration files, or the repo's description/topics on GitHub — for what each file holds, where an explanation belongs, and how to write content that stays accurate as the project changes, rather than freezing a snapshot of today's feature set.
 ---
 
 # Repository documentation
@@ -27,6 +27,33 @@ A repo's own README/AGENTS.md needs to make sense to someone who has nothing but
 ## State the lesson, not the incident
 
 An operational note ("use X, not Y", "this fails when...") should read as a fact plus how to apply it, never as a dated incident report. Drop `confirmed <date>: ...` framing, drop the narrative of what happened and when it was discovered, drop exact error text kept as evidence the claim is true — keep only the thing that's actually true now and what to do about it. A dated incident log is itself a snapshot: a future reader can't tell from "confirmed 2026-10-03" whether that's still current or three rewrites out of date, so the date doesn't even achieve the freshness-tracking it looks like it's for — it just adds narrative weight to parse before reaching the actual instruction. For example, "confirmed 2026-10-03, this machine's installed `wrangler` was `4.141.0` and `wrangler login`'s post-auth redirect landed on a dashboard route that version no longer serves (\"Page not found: /wrangler does not exist\") — `npx wrangler@latest login` avoids the mismatch entirely" becomes "Use `npx wrangler@latest`, not a locally-installed `wrangler` — an outdated version's login redirect can land on a dashboard route that no longer exists."
+
+## What each file holds
+
+Each app or repository keeps `AGENTS.md`, `DOMAIN.md` and the README scoped to their own concern, and the concerns stay separate. Task tracking (what is done, what is next) goes through `atask` per the `todo` skill, not a markdown file.
+
+### AGENTS.md
+
+Technical and architecture conventions for coding agents: stack, patterns, gotchas, non-obvious constraints, and how the parts fit together. It is agent-agnostic, readable by any coding tool and not only Claude.
+
+### DOMAIN.md
+
+Stable business knowledge: what the real-world concepts of the app mean and what must always hold about them. It lives at the root of the app's directory (`apps/<app>/DOMAIN.md` in monocoque, the repository root elsewhere), changes rarely, and describes the problem, not the code or its implementation status.
+
+A question like "can a Tab exist without a Song?" belongs here. A question like "which view handles tab upload?" belongs in the code or `AGENTS.md`.
+
+Write it as plain prose under a single title, a few paragraphs covering what the core entities mean, how they relate and what must always hold about them. Use a heading or a list only when the content does not read as prose, such as a long enumeration.
+
+Create or update it at these moments:
+- **New app:** write it as part of the initial scaffold, alongside `AGENTS.md`.
+- **Model or domain change:** update it in the same PR whenever a change alters what an entity means or what invariants hold, such as a new required relationship or a new type with business meaning. Pure refactors, renames and implementation-only changes leave it alone.
+- **Missing on an existing app:** when a change touches the app's domain model and there is no `DOMAIN.md`, add one that captures the current business knowledge as part of that change.
+
+When a domain decision lands mid-task (the user settles what an entity means, corrects an assumption, or draws a new boundary between concepts), write the decision into `DOMAIN.md` first and then implement against the updated document. Writing it down first catches an inconsistency, with an existing paragraph or with the decision as just stated, while it is still cheap to fix.
+
+### README
+
+Setup and usage instructions for people, when the project has one.
 
 ## A comment explains one setting; AGENTS.md explains how things fit
 

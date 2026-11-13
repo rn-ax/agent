@@ -11,10 +11,6 @@ description: >
 
 Invoke this skill at the **start** of any coding task, before editing anything — not just at commit time. The worktree-isolation rule below only works if it's applied from the first edit onward.
 
-## Documentation Files
-
-Each app keeps its docs (`AGENTS.md`, `DOMAIN.md`, `README`) scoped to their own concern — don't mix them. Task tracking goes through `atask` per the `todo` skill, not a markdown file. See `references/documentation-files.md` for what belongs in each file and when to create or update them.
-
 ## Scripts
 
 All scripts live in `~/.claude/skills/agent-code-pusher/`. Use them for every git operation — they are pre-approved by the user and avoid repeated permission prompts.
@@ -38,7 +34,7 @@ For non-trivial or ambiguous tasks, use Claude Code's built-in Plan Mode (`Enter
 
 Plan Mode should leave two durable artifacts, not just an approved message:
 
-1. **Knowledge** — any non-obvious constraint, architecture decision, or stable business fact uncovered while planning goes into the right file from "Documentation Files" above (`AGENTS.md` for technical/architecture, `DOMAIN.md` for business/domain), so future sessions don't have to rediscover it.
+1. **Knowledge** — any non-obvious constraint, architecture decision, or stable business fact uncovered while planning goes into the repository's documentation (the `repo-docs` skill says which file), so future sessions don't have to rediscover it.
 2. **Tasks** — the concrete steps of the plan become tasks via `atask` (see the `todo` skill), so progress through the worktree/commit/PR flow below is tracked rather than held only in the plan.
 
 1. Sync main: `~/.claude/skills/agent-code-pusher/sync-main` — resets the local `main` to `origin/main` so the new branch starts from current upstream, not stale or dirty local state
