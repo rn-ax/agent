@@ -16,7 +16,6 @@ description: Use whenever writing, running or re-recording Playwright end-to-end
 ## Themes
 
 - Screenshot tests record and compare only the primary theme, the one the app is actually used in (dark for these apps), because the themes differ in color alone and each extra theme doubles the baselines to record and verify.
-- That an app has another theme is checked without images: emulate each color-scheme preference with `page.emulateMedia({ colorScheme })` and compare the page's background brightness. daisyUI declares its colors in `oklch()`, which a canvas converts to RGB.
 
 ## Running the container
 
