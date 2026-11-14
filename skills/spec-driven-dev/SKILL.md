@@ -38,6 +38,17 @@ The spec changes first. Criteria are written and approved before the code that s
 
 Where other information lives: what the concepts mean in the context of the spec files, facts specific to the repo (constraints and non-obvious gotchas) in `AGENTS.md`, why a choice was made and which approaches were rejected in the pull request description.
 
+## Scenarios
+
+A scenario is a specific thing Samuel wants to accomplish with the app, kept as an issue with the label `scenario`. Its body is his account of it in his own words, with every detail he gave, and the issue is closed when the whole account is represented in the production app.
+
+1. Samuel gives the scenario. The agent opens the `scenario` issue (creating the label when the repo has none) and keeps his text verbatim.
+2. The agent breaks the scenario down into the concepts the app needs to represent it. Each concept is its own issue that starts with `Part of #<scenario>`, and a concept an existing issue already covers is linked and not opened again. The scenario's body lists them as a checklist, with the entry of the scenario's data in production as its last item.
+3. Where a concept can be modelled in more than one way, its issue states the options and a recommendation, and Samuel decides in the issue before its criteria are written.
+4. Each concept follows the method above: criteria first, then tests and code, then the merge and deploy. Concepts are delivered in the order that lets the most of the scenario be entered after each deploy.
+5. After each deploy Samuel enters what the app can now represent. Whatever he cannot yet enter shows which concept comes next, and the checklist is updated as concepts land.
+6. The scenario is closed when all of it is entered.
+
 ## Delivery
 
 Every repo that uses the method satisfies these delivery rules. They belong to the method, so a repo's `spec/` does not repeat them.
