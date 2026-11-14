@@ -21,6 +21,8 @@ Scripts are executable files without an extension, each starting with a docstrin
 
 What a skill holds, and what is left to other files such as a script's docstring, follows "Where information lives" in the agent instructions.
 
+A skill calls the person the agent works for "the user", and the same word is used wherever the skill describes who decides, approves or supplies information. Names of people stay out of skills, so a skill reads the same whoever operates the system.
+
 ## Scripts
 
 A script makes at most one write. Reading and validating are harmless, so a script reads as much as it needs, from as many interfaces as it needs, and checks everything it can before it changes anything. Each write is a point where something can go wrong and leave a system half changed, so a workflow that needs several writes is several commands, and the agent composes them from the steps in the skill text and stays in control of the flow. Between two commands the agent sees the result of the first and decides what to do. Inside one script, a failure between two writes can leave the systems disagreeing with nothing to say so.
