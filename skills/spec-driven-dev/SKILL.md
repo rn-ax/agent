@@ -13,6 +13,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 
 - **Samuel** takes part in writing the criteria, and sets the access the pipeline needs (secrets, variables, team access).
 - **Agents** propose criteria for Samuel to correct, choose the implementation, and make sure every criterion holds. They may change workflows, tests and tooling as part of normal work.
+- An agent does not wait for the merge or the deploy. The pipeline merges and deploys on its own, so the agent pushes, reports and moves on, and looks at the outcome once when asked or when a background notification arrives.
 - The repo's `AGENTS.md` records that no review step exists, so every session in it knows. A global rule that Samuel merges his own PRs gives way to that statement.
 
 ## Acceptance criteria
