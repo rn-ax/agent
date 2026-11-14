@@ -36,7 +36,9 @@ Work still open on the backup solution, grouped by theme. The design, principles
 
 - [ ] List the Macs to protect and set up Time Machine on each against the Mac mini share.
 - [ ] Clone the Mac mini's own disk to a separate backup disk with SuperDuper or Carbon Copy Cloner.
-- [ ] Create the SMB share and its non-admin user on the Mac mini, add it in Home Assistant as backup network storage and as an automatic backup location, then write the archive, verify and retention job with its health check.
+- [ ] Confirm the first automatic backup (05:xx) reaches `server_backup`, that `ha-archive` archives it at 06:30, and that the Healthchecks check stays up; then delete the manual `server_backup test` backup in Home Assistant and its archived copy.
+- [ ] Move the Home Assistant share onto the D4-320 (formatted with ownership enabled, folder permissions that are enforced) and give it a short share name, then update the `server_backup` mount.
+- [ ] Find out why the file-sharing service cannot open `/Volumes/Backup/ha-backups` while internal-disk shares work (suspect the external-volume permission of the SMB service).
 - [ ] Save the Home Assistant backup password in 1Password, decide whether to rotate it (the current one appeared once in an agent session's output), and test a restore of the newest backup.
 - [ ] Fix or remove the failing Synology DSM backup location in Home Assistant.
 - [ ] Replace the Pi 5's SD card with an NVMe or SSD boot disk (backups currently sit on the card as well as elsewhere); the move is a full backup, a fresh HAOS image on the new disk, a restore and an unchanged address.

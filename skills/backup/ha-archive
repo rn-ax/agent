@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""ha-archive: copy new Home Assistant backups into a protected archive and prune its history.
+
+Runs on server.lan from launchd. Usage:
+    ha-archive [--dry-run] [--max-age-hours 36]
+
+Reads:  ~/.config/ha-backup-archive/env (mode 600) with HC_PING_URL, SMB_HOST,
+        SMB_SHARE, SMB_USER, SMB_PASSWORD and optionally ARCHIVE_DIR
+        (default /Volumes/Backup/ha-archive).
+Writes: new files in ARCHIVE_DIR (copied under a .partial name, verified by size,
+        sha256 and `tar -tf`, then renamed) and deletions in ARCHIVE_DIR that fall
+        outside the retention (newest per day for 14 days, per ISO week for 8
+        weeks, per month for 12 months). The SMB share is mounted read-write by
+        the OS but this script only reads from it. Pings Healthchecks.io at start,
+        on success and on failure. --dry-run mounts and reports the plan and writes
+        nothing else.
+Exit codes: 0 success, 1 a step failed or the newest archived backup is older than
+        --max-age-hours, 2 usage or configuration error.
+Prints one JSON report on stdout; progress goes to stderr.
+"""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.parse
+import urllib.request
+
+ENV_PATH = os.path.expanduser("~/.config/ha-backup-archive/env")
+DATE_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})")
+KEEP_DAYS, KEEP_WEEKS, KEEP_MONTHS = 14, 8, 12
+
+ctx = {"script": "ha-archive", "args": {}, "steps": []}
+
+
+def step(name, **data):
+    ctx["steps"].append({"step": name, **data})
+    print(f"{name}: {json.dumps(data, ensure_ascii=False)}", file=sys.stderr)
+
+
+def load_env(path):
+    env = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip()
+    return env
+
+
+def ping(url, suffix="", body=None):
+    if not url:
+        return
+    try:
+        req = urllib.request.Request(url + suffix, data=(body or "").encode(), method="POST")
+        urllib.request.urlopen(req, timeout=15).read()
+    except Exception as e:  # a failed ping never hides the real result
+        print(f"ping failed: {e}", file=sys.stderr)
+
+
+def stamp(name, path):
+    m = DATE_RE.search(name)
+    if m:
+        y, mo, d, h, mi = map(int, m.groups())
+        return dt.datetime(y, mo, d, h, mi)
+    return dt.datetime.fromtimestamp(os.path.getmtime(path))
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def to_keep(items):
+    """items: list of (datetime, name). Returns the set of names to keep."""
+    keep = set()
+    for key, limit in (
+        (lambda t: t.date(), KEEP_DAYS),
+        (lambda t: t.isocalendar()[:2], KEEP_WEEKS),
+        (lambda t: (t.year, t.month), KEEP_MONTHS),
+    ):
+        seen = set()
+        for t, name in sorted(items, reverse=True):
+            k = key(t)
+            if k in seen:
+                continue
+            if len(seen) >= limit:
+                break
+            seen.add(k)
+            keep.add(name)
+    return keep
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Archive Home Assistant backups.")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--max-age-hours", type=float, default=36)
+    a = ap.parse_args()
+    ctx["args"] = {"dry_run": a.dry_run, "max_age_hours": a.max_age_hours}
+
+    try:
+        env = load_env(ENV_PATH)
+        for k in ("SMB_HOST", "SMB_SHARE", "SMB_USER", "SMB_PASSWORD"):
+            if not env.get(k):
+                raise KeyError(k)
+    except Exception as e:
+        ctx["error"] = {"step": "config", "type": type(e).__name__, "message": f"cannot read {ENV_PATH}: {e}"}
+        print(json.dumps(ctx, ensure_ascii=False))
+        return 2
+
+    hc = env.get("HC_PING_URL")
+    archive = env.get("ARCHIVE_DIR", "/Volumes/Backup/ha-archive")
+    mnt = None
+    code = 0
+    try:
+        if not a.dry_run:
+            ping(hc, "/start")
+        if not os.path.isdir(os.path.dirname(archive)):
+            raise RuntimeError(f"{os.path.dirname(archive)} is not mounted")
+        mnt = tempfile.mkdtemp(prefix="ha-archive.")
+        url = "//%s:%s@%s/%s" % (
+            urllib.parse.quote(env["SMB_USER"], safe=""),
+            urllib.parse.quote(env["SMB_PASSWORD"], safe=""),
+            env["SMB_HOST"],
+            urllib.parse.quote(env["SMB_SHARE"]),
+        )
+        r = subprocess.run(["mount_smbfs", url, mnt], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError("mount_smbfs failed: " + r.stderr.strip().replace(env["SMB_PASSWORD"], "<pw>"))
+        step("mount", share=env["SMB_SHARE"], mountpoint=mnt)
+
+        source = sorted(n for n in os.listdir(mnt) if n.endswith(".tar") and not n.startswith("."))
+        step("list-source", backups=len(source))
+
+        os.makedirs(archive, exist_ok=True)
+        archived = {n for n in os.listdir(archive) if n.endswith(".tar")}
+        new = [n for n in source if n not in archived]
+        copied = []
+        for n in new:
+            src, dst = os.path.join(mnt, n), os.path.join(archive, n)
+            size = os.path.getsize(src)
+            if a.dry_run:
+                copied.append({"name": n, "bytes": size, "dry_run": True})
+                continue
+            part = dst + ".partial"
+            shutil.copyfile(src, part)
+            if os.path.getsize(part) != size:
+                os.remove(part)
+                raise RuntimeError(f"{n}: size differs after copy")
+            if sha256(part) != sha256(src):
+                os.remove(part)
+                raise RuntimeError(f"{n}: checksum differs after copy")
+            if subprocess.run(["tar", "-tf", part], capture_output=True).returncode != 0:
+                os.remove(part)
+                raise RuntimeError(f"{n}: not a readable tar archive")
+            os.chmod(part, 0o600)
+            os.rename(part, dst)
+            copied.append({"name": n, "bytes": size, "verified": True})
+        step("copy", new=len(new), copied=copied)
+
+        have = {n for n in os.listdir(archive) if n.endswith(".tar")}
+        if a.dry_run:
+            have |= set(new)  # plan as if the copy had happened
+        items = []
+        for n in have:
+            path = os.path.join(archive, n)
+            items.append((stamp(n, path if os.path.exists(path) else os.path.join(mnt, n)), n))
+        keep = to_keep(items) if items else set()
+        drop = sorted(set(have) - keep)
+        if items and not keep:
+            raise RuntimeError("retention would delete everything")
+        if not a.dry_run:
+            for n in drop:
+                os.remove(os.path.join(archive, n))
+        step("prune", kept=len(keep), pruned=drop, dry_run=a.dry_run)
+
+        if items:
+            newest = max(t for t, _ in items)
+            age = (dt.datetime.now() - newest).total_seconds() / 3600
+            step("freshness", newest=newest.isoformat(timespec="minutes"), age_hours=round(age, 1))
+            if age > a.max_age_hours:
+                raise RuntimeError(f"newest archived backup is {age:.0f} hours old")
+        else:
+            raise RuntimeError("the archive holds no backups")
+    except Exception as e:
+        ctx["error"] = {
+            "step": ctx["steps"][-1]["step"] if ctx["steps"] else "start",
+            "type": type(e).__name__,
+            "message": str(e),
+        }
+        code = 1
+    finally:
+        if mnt:
+            subprocess.run(["umount", mnt], capture_output=True)
+            try:
+                os.rmdir(mnt)
+            except OSError:
+                pass
+        if not a.dry_run:
+            if code == 0:
+                ping(hc)
+            else:
+                ping(hc, "/fail", ctx["error"]["message"])
+        print(json.dumps(ctx, ensure_ascii=False))
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
