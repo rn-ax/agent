@@ -46,15 +46,13 @@ Every repo that uses the method satisfies these delivery rules. They belong to t
 - Every deploy is preceded by a backup of the SQLite database whose name ends in a UTC timestamp, and a deploy does not start when its backup failed.
 - A deployed version can be rolled back by running the previous version against the database restored from the backup taken before that deploy. Writes made after that deploy are lost.
 
-How they are built:
+A repo with several SQLite databases has each of them backed up before a deploy, and its `AGENTS.md` names them and where they live.
 
-- CI runs the full suite on every branch push. A passing PR is squash-merged, and CI on the default branch builds, tests and deploys the merged commit.
-- On GitHub Free a private repo has no branch protection or rulesets, so the merge gate is workflow logic that nothing enforces against a direct push. A Team plan enforces it with required checks, native auto-merge and a merge queue; moving there changes where the gate lives and leaves the method alone.
-- A merge made with `GITHUB_TOKEN` starts no workflows, except `workflow_dispatch` and `repository_dispatch`, so the follow-up run on the default branch is started with `gh workflow run`.
-- The running version makes the backup, so it holds the state from before the deploy. An app with a built-in backup API (PocketBase) uses it, since a plain copy of a SQLite file can tear while the app writes.
-- Rollback discards the writes made after the deploy, which suits a single-user app and needs a different design for anything with many writers.
+State that is not in a database, such as files on a dataset, is outside the backup and the rollback. When the databases only cache what those files say, a rollback leaves the files as they are.
 
-`rn-ax/trotter` is the first implementation.
+Rollback discards the writes made after the deploy, which suits a single-user app and needs a different design for anything with many writers.
+
+How the rules are built is in the `github` skill (the merge gate and workflow triggers) and in the skill of the app's stack (backups, for PocketBase the `pocketbase` skill). `rn-ax/trotter` is the first implementation.
 
 ## Working with the superpowers plugin
 
