@@ -30,7 +30,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 ## Method
 
 1. Find the files that apply: `rg -l` over the frontmatter in `spec/` (`tags:` and `description:` lines). Read their context and criteria before proposing anything.
-2. Identify the criteria together: the agent proposes them in plain sentences, Samuel corrects, and the result is written to the functionality's file. A new functionality gets its own file when it is large enough, and `general.md` takes the rest. A rule that changes is deleted and added again under a new number.
+2. Identify the criteria together, one tightly scoped concept at a time. The agent picks the next concept, asks Samuel only the specific questions it needs to design it, and proposes that concept's criteria, a handful at most, in plain sentences. Samuel approves or corrects them as a multi-select of the criteria. Approved criteria are written to the functionality's file before the next concept is taken up. A new functionality gets its own file when it is large enough, and `general.md` takes the rest. A rule that changes is deleted and added again under a new number.
 3. Implement against the criteria. There is no separate implementation plan, because the criteria are the plan and the agent decides the files, names and structure. Each criterion gets its own tests, tagged with its ID; a test that checks two criteria is split.
 4. Verify every criterion in CI before anything merges.
 
