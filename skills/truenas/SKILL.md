@@ -25,6 +25,16 @@ The "TrueNAS" item in the "Agent" 1Password vault holds the `Agent` key (`passwo
 
 An API key is tied to a TrueNAS user and carries that user's privilege; the built-in privileges are Local Administrator, Read-Only Administrator and Sharing Administrator. Creating a key, and storing it somewhere new, is new access that Samuel decides on.
 
+## CPU
+
+The host has an Intel Core i7 950 (Nehalem, 2009). It has SSE4.2 but none of AVX, AVX2, FMA, BMI1, BMI2, MOVBE or LZCNT, which `grep -w avx /proc/cpuinfo` confirms.
+
+An image whose code is built for those instructions dies with an illegal instruction when it loads, which shows as a container that stays "Up" while its service never opens its port. Polars' default runtime is one such library, and the machine learning and numeric wheels built for AVX are the same kind.
+
+A container that crashes without logging is diagnosed by running the application's entry point by hand inside it (`docker exec` the factory or `python -c "import <package>"`), which prints the CPU-feature warning that the service's own logging hides. An image tested on a Mac under x86 emulation can pass there and still fail on this host, so a first run on the host is the real test.
+
+The fix is a build of the library for older CPUs (for Polars, `polars[rtcompat]` at the version already installed), added in a thin image of our own on top of the upstream release.
+
 ## Disks and pools
 
 The server has three kinds of disk, told apart by name:
