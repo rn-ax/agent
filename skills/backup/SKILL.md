@@ -56,8 +56,19 @@ The M1 Mac mini `server.lan` is the backup server, with a TerraMaster D4-320 4-b
 - **SMART works natively.** `sudo smartctl -a /dev/diskN` reads the full SMART data of a disk in the D4-320 on an Apple Silicon Mac running macOS 27 with smartmontools 7.5, including the real model, serial number and self-test log. `-d sat` fails there with "Not a device of type 'scsi'" because macOS exposes no raw ATA pass-through for USB storage. A forum reporter on an earlier macOS got "Not Supported", so a different macOS version may behave differently. Starting a self-test through the enclosure (`smartctl -t long`) is untested.
 - **Sleep design.** One disk serves data and stays mounted. The other disks are backup disks that stay unmounted and idle except during a backup job, which mounts the volume (`diskutil mount`), runs the backup, checks SMART, unmounts it (`diskutil unmountDisk`) and pings the health check. `sudo pmset -a disksleep <minutes>` sets the idle time for all disks, Spotlight is off on backup volumes (`mdutil -i off`, plus `.metadata_never_index` on the volume), and `smartctl -n standby -i /dev/diskN` checks whether a disk is asleep without waking it. Whether the D4-320 spins a disk down when it is only unmounted is untested; the forum threads report an enclosure default of about 60 seconds idle before spin-down and disks that fail to wake on some Macs.
 - **Disks in use.** The first disk is a WD Red 3 TB (`WD30EFRX`, CMR, serial `WD-WMC1T2678849`) with 90,860 power-on hours. On 2026-10-30 its SMART counters were clean (reallocated, pending and offline-uncorrectable sectors 0, CRC errors 0, no logged errors, `Multi_Zone_Error_Rate` 3). Its self-test log had monthly long tests up to lifetime hour 25,220 and none since, so a long test is the first step before trusting it. The disk's age makes it a fit for a backup role, not for serving data.
-- Mac backups use Time Machine over SMB (a shared folder on the Mac mini with "Share as a Time Machine backup destination"), one volume or quota per Mac. The Mac mini's own disk is cloned to a separate backup disk with SuperDuper or Carbon Copy Cloner.
-- TrueNAS data reaches the Mac mini through rsync over SSH or a versioned tool (restic or Kopia). ZFS replication needs ZFS on the receiving side.
+- Mac backups use Time Machine over SMB (a shared folder on the Mac mini with "Share as a Time Machine backup destination"), one volume or quota per Mac. A bootable clone of the Mac mini's own disk, if wanted, is the one job for SuperDuper or Carbon Copy Cloner.
+- **restic is the versioned, encrypted backup tool** (decided 2026-11-14; 0.19.1 installed on `server.lan` through Homebrew, no repository exists yet). TrueNAS data reaches the Mac mini by the Mac mini pulling: restic runs on `server.lan` against read-only SMB or NFS mounts of TrueNAS snapshots, so TrueNAS holds no credential that can write to the backups. ZFS replication needs ZFS on the receiving side, which macOS lacks.
+- **Cloning between disks is `restic copy`.** The second repository on the backup disk is created with `restic init --copy-chunker-params --from-repo <primary>` so both share chunking and deduplicate. `restic copy` then brings across only the missing snapshots, reading from the first repository and leaving the sources alone. The offsite repository is a third copy made the same way. The sleep-design job becomes: mount the backup disk, `restic copy`, `forget --prune`, `check`, SMART check, unmount, health-check ping. Repository passwords live in 1Password, and a copy of the restic binary belongs in the backup set, since a repository opens only with restic and its password.
+- Everything on the Mac mini that needs the D4-320 (repositories, the Time Machine share, the clone job) waits until the enclosure is attached and its disks are formatted.
+- The Mac mini is also used interactively and runs other apps (Redis, OrbStack, Beszel agent among them). FileVault is off and `autorestart` is on, so a power cut returns it to service unattended. Backup folders are readable only by a dedicated backup user. `sudo` on the host needs a password, so creating shares and users happens in System Settings by the user.
+
+## Home Assistant backups
+
+Home Assistant runs on the Pi 5 (HAOS, booting from a 58 GB SD card) on the IoT network `192.168.3.x`. Its automatic backups run daily around 05:00 and are about 700 MB each, with 3 copies kept. They are encrypted with a backup password set in Home Assistant, and a backup is unusable without it, so the password belongs in 1Password.
+
+- **Configured locations (2026-11-14):** the SD card (`/backup`), Home Assistant Cloud (only the latest backup is present there) and the Synology DSM agent. The Synology agent has failed on every recent backup, so that copy does not exist.
+- **Direction:** `server.lan` (`192.168.1.x`) cannot reach the Pi at all, and the Pi can reach `server.lan` on SMB (445) and SSH (22) and TrueNAS on NFS (2049). Home Assistant therefore pushes.
+- **Design:** a folder on the Mac mini shared over SMB to a dedicated non-admin user that can write only there. Home Assistant adds it as network storage with the backup usage and includes it in the automatic backup locations. A scheduled job on the Mac mini then moves each new backup into an archive folder the share user cannot write to, verifies it, keeps a long history (about 14 daily, 8 weekly and 12 monthly) and pings a health check, with an alert when no new backup has arrived for 36 hours. The archive is then covered by the restic copy and offsite jobs like any other folder.
 
 ## Offsite (planned, undecided)
 
@@ -68,7 +79,7 @@ A scheduled job on the Mac mini sends an encrypted, versioned copy of the irrepl
 1. Which movies and TV shows are "important" and how to mark them (a dataset split, a folder, or a list).
 2. Per-dataset tiering for `Homebridge`, `Backup`, `Downloads` and the Apps datasets.
 3. Offsite provider and the upload speed available.
-4. Whether TrueNAS pushes to the Mac mini or the Mac mini pulls from TrueNAS.
+4. Confirm the pull model for TrueNAS (the Mac mini reads snapshots over SMB or NFS) and pick the mount type.
 5. Snapshot schedule and retention on `Storage`.
 6. How to back up the TrueNAS system disk (the boot SSD) so a dead disk costs a reinstall and a config restore, not the configuration itself.
 
@@ -76,3 +87,4 @@ A scheduled job on the Mac mini sends an encrypted, versioned copy of the irrepl
 
 - 2026-10-13: Skill created from the design discussion. TrueNAS pool layout, existing tasks and the Cloud Sync job confirmed live.
 - 2026-10-30: The TerraMaster D4-320 replaces the malfunctioning Deltaco enclosure. SMART data of a disk in it read natively on macOS 27; first disk's baseline recorded; sleep design written down.
+- 2026-11-14: restic chosen as the backup tool and `restic copy` as the disk-to-disk clone. Home Assistant's backup state and the network directions between the IoT network and `server.lan` confirmed live. The Mac mini setup waits for the D4-320.
