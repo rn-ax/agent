@@ -134,6 +134,17 @@ Small purchases are skipped: AliExpress items under about 10 EUR, bare electroni
 
 A shop's order-history export is the preferred source when one exists: Verkkokauppa's CSV lists every order with brand, product code, serial or IMEI, and warranty months. Its prices exclude VAT for deliveries to Åland, so Finnish VAT is added by purchase date. Returned items and orders the user did not keep are left out, and serial numbers in the export are matched to devices already in Homebox.
 
+## Batch import from Paperless receipts
+
+Receipts live in Paperless, and once their text has been fixed (see the `paperless` skill) a content search finds the purchases worth recording. This is one pass after the OCR work, not something done while transcribing.
+
+1. Search Paperless for receipts of durable things within the scope above, and list the candidates with date, shop and price.
+2. Check Homebox for an existing record by name, article number or purchase date before creating anything.
+3. Create each record with what the receipt gives: name, manufacturer and model when printed, `purchaseFrom`, `purchaseDate`, the price in EUR (`hb-eur`; a Swedish shop's price already includes VAT), the article number, `Purchase Price (Original)` and `Exchange Rate`, and a `Receipt` field linking to the Paperless document (`[Receipt in Paperless (#id)](https://paper.rn.ax/documents/<id>/details)`).
+4. Run `hb-needs-info` on the new items, so what the receipt does not give is marked with `Needs Info`.
+
+A batch import may leave a record incomplete, with `Needs Info` marking what is missing, as long as everything the receipt states is in it. The rule to ask "do you still own this?" for each item still applies unless the user waives it for the batch.
+
 ## Computers and their parts
 
 A computer or NAS is an item, and its parts are child items (CPU, board, RAM, PSU, case, GPU, drives). The installed hardware is read from the machine itself and matched to purchase emails by model number or serial:
