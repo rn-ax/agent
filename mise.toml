@@ -1,2 +1,7 @@
 [tools]
 python = "3.15.2"
+uv = "0.13.8"
+
+[tasks.test]
+description = "Run the Python test suite"
+run = "uv run --group dev pytest"
