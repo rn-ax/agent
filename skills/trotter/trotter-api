@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Authenticated trotter (PocketBase) API wrapper: adds the base URL and a sign-in token, nothing else.
+# Authenticated trotter (PocketBase) API wrapper, using the agent login in the "Trotter" item of the
+# "Agent" 1Password vault (its first URL, its username and its password), the same way wm-api reads
+# the "Windmill" item. The login is a PocketBase administrator, so it signs in against `_superusers`;
+# its changes are recorded in trotter's history under `admin`.
 # Usage: trotter-api <method> <path> [curl-args...]
 #   trotter-api GET '/api/collections/trips/records?perPage=50'
 #   trotter-api POST /api/collections/trips/records -d '{}'
 #   trotter-api GET '/api/places/search?q=helsinki%20airport'
 #
-# <path> is relative to the base URL and must start with /. The response body goes to stdout.
+# <path> is relative to the item's URL and must start with /. The response body goes to stdout.
 #
-# Reads TROTTER_URL, TROTTER_EMAIL and TROTTER_PASSWORD when they are set. Otherwise it reads the
-# "Trotter" item in the "Agent" 1Password vault (url, username, password) through ~/tasks/op-service-account.
-# TROTTER_AUTH_COLLECTION names the collection the login belongs to: `users` (default) for the
-# owner's login, `_superusers` for an administrator.
+# TROTTER_URL, TROTTER_EMAIL, TROTTER_PASSWORD and TROTTER_AUTH_COLLECTION override the item (for a
+# local trotter, or the owner's login with TROTTER_AUTH_COLLECTION=users).
 # Writes nothing locally; every call signs in again.
 # Exit codes: 0 the request was sent (the status is in the body), 1 sign-in failed, 2 usage error.
 set -euo pipefail
@@ -20,16 +21,19 @@ path="${2:?Usage: trotter-api <method> <path> [curl-args...]}"
 shift 2
 [[ "$path" == /* ]] || { echo "trotter-api: the path must start with /" >&2; exit 2; }
 
-vault() { ~/tasks/op-service-account item get Trotter --vault Agent --fields "label=$1" --reveal; }
-url="${TROTTER_URL:-$(vault url)}"
-email="${TROTTER_EMAIL:-$(vault username)}"
-password="${TROTTER_PASSWORD:-$(vault password)}"
-collection="${TROTTER_AUTH_COLLECTION:-users}"
+if [ -z "${TROTTER_URL:-}" ] || [ -z "${TROTTER_EMAIL:-}" ] || [ -z "${TROTTER_PASSWORD:-}" ]; then
+  item_json="$(~/tasks/op-service-account item get Trotter --vault Agent --format json --reveal)"
+fi
+url="${TROTTER_URL:-$(jq -r '.urls[0].href' <<<"$item_json")}"
+url="${url%/}"
+email="${TROTTER_EMAIL:-$(jq -r '.fields[] | select(.id=="username") | .value' <<<"$item_json")}"
+password="${TROTTER_PASSWORD:-$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")}"
+collection="${TROTTER_AUTH_COLLECTION:-_superusers}"
 
 token="$(curl -sS -X POST "$url/api/collections/$collection/auth-with-password" \
   -H "Content-Type: application/json" \
-  -d "$(python3 -c 'import json,sys; print(json.dumps({"identity": sys.argv[1], "password": sys.argv[2]}))' "$email" "$password")" |
-  python3 -c 'import json,sys; print(json.load(sys.stdin).get("token", ""))')"
+  -d "$(jq -n --arg identity "$email" --arg password "$password" '{identity: $identity, password: $password}')" |
+  jq -r '.token // empty')"
 [ -n "$token" ] || { echo "trotter-api: sign-in to $url as $email failed" >&2; exit 1; }
 
 curl -sS -X "$method" "$url$path" -H "Authorization: $token" -H "Content-Type: application/json" "$@"

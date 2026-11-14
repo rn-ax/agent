@@ -11,9 +11,13 @@ trotter records visits to places, grouped into trips with the transportation bet
 
 ## Reaching the API
 
-`trotter-api <method> <path> [curl-args...]` (this skill's own directory) adds the base URL and signs in, nothing else, so every request is the agent's decision. It reads the "Trotter" item in the "Agent" 1Password vault (url, username, password); `TROTTER_URL`, `TROTTER_EMAIL` and `TROTTER_PASSWORD` override it, and `TROTTER_AUTH_COLLECTION` is `users` for the owner's login (the default) or `_superusers` for an administrator.
+`trotter-api <method> <path> [curl-args...]` (this skill's own directory) adds the base URL and signs in, nothing else, so every request is the agent's decision. It reads the "Trotter" item in the "Agent" 1Password vault (its first URL, username and password), the same way `wm-api` reads "Windmill". The login is a PocketBase administrator created for agents, so the wrapper signs in against `_superusers`. `TROTTER_URL`, `TROTTER_EMAIL`, `TROTTER_PASSWORD` and `TROTTER_AUTH_COLLECTION` override the item, for a local trotter or for the owner's own login (`users`).
 
-Everything requires a signed-in login. Changes made by an administrator are recorded in the history log under `admin`, and those made by the owner's login under the user, so an agent's work is told apart when it has a login of its own.
+An administrator login bypasses the API rules (a visit's trip is fixed only for the owner's login), but not the hooks, so ranges, tags and the delete refusals still hold.
+
+To create the agent login again, run `docker exec ix-trotter-trotter-1 /pb/pocketbase superuser upsert agent@trotter.rn.ax <password> --dir=/pb_data` on the TrueNAS host, and keep the password in the "Trotter" item.
+
+Everything requires a signed-in login. Changes made by the agent login are recorded in the history log under `admin`, and those made by the owner under the user, so an agent's work is told apart.
 
 ## Data
 
