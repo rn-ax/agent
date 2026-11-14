@@ -12,7 +12,15 @@ Checks:
   purchase date   everything except gifts
   purchase price  everything except gifts and employer-owned items
 
+A product that does not carry a serial or model number (a juicer with nothing printed on it)
+lists what it lacks in a `Not Marked` custom field (`model number`, `serial number`, comma
+separated), and the check skips those entries.
+
 Usage: hb-needs-info [--dry-run] [--only ENTITY_ID ...]
+       hb-needs-info --list
+
+--list changes nothing: it prints the live items tagged `Needs Info`, newest purchase first
+(undated items last), as {id, name, purchaseDate, missing, url}.
 
 With --only the checks run for those items alone (entity ids, the UUIDs in item URLs) and nothing
 else in the inventory is read or changed; without it the whole inventory is synced. Each change
@@ -45,12 +53,14 @@ def hb(method, path, body=None):
 
 def missing(e):
     tags = {t["name"] for t in e["tags"]}
+    absent = next((f["textValue"] for f in e["fields"] if f["name"] == "Not Marked"), "") or ""
+    absent = {a.strip().lower() for a in absent.split(",")}
     miss = []
     top_level = (e["parent"] or {}).get("entityType", {}).get("isLocation", True)
     is_device = bool(tags & DEVICE_TAGS) or ("Computers" in tags and top_level)
-    if is_device and not (tags & NO_SERIAL) and not e["serialNumber"]:
+    if is_device and not (tags & NO_SERIAL) and not e["serialNumber"] and "serial number" not in absent:
         miss.append("serial number")
-    if not (e["modelNumber"] or tags & NO_MODEL):
+    if not (e["modelNumber"] or tags & NO_MODEL or "model number" in absent):
         miss.append("model number")
     gift = "gift" in (e.get("notes") or "").lower()
     date = (e["purchaseDate"] or "").strip()
@@ -61,8 +71,39 @@ def missing(e):
     return ", ".join(miss) or None
 
 
+def list_open(ctx):
+    tag = next((t for t in hb("GET", "/tags") if t["name"] == "Needs Info"), None)
+    if tag is None:
+        return []
+    r = hb("GET", f"/entities?tags={tag['id']}&pageSize=200")
+    if r["total"] > len(r["items"]):
+        raise RuntimeError(f"{r['total']} tagged items but one page holds {len(r['items'])}")
+    with ThreadPoolExecutor(6) as ex:
+        full = list(ex.map(lambda i: hb("GET", f"/entities/{i['id']}"), r["items"]))
+    rows = []
+    for e in full:
+        date = (e["purchaseDate"] or "")[:10]
+        rows.append({"id": e["id"], "name": e["name"], "purchaseDate": "" if date.startswith("0001") else date,
+                     "missing": next((f["textValue"] for f in e["fields"] if f["name"] == "Missing Info"), None),
+                     "url": f"https://home.rn.ax/item/{e['id']}"})
+    rows.sort(key=lambda x: x["purchaseDate"], reverse=True)
+    ctx["steps"].append({"step": "listed", "items": len(rows)})
+    return rows
+
+
 def main():
     args = sys.argv[1:]
+    if "--list" in args:
+        ctx = {"script": "hb-needs-info", "args": {"list": True}, "steps": [], "items": []}
+        code = 0
+        try:
+            ctx["items"] = list_open(ctx)
+        except Exception as e:
+            ctx["error"] = {"type": type(e).__name__, "message": str(e)}
+            code = 1
+        finally:
+            print(json.dumps(ctx, ensure_ascii=False))
+        sys.exit(code)
     dry = "--dry-run" in args
     only = []
     if "--only" in args:

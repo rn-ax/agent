@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Change one Homebox entity: built-in fields, custom fields and tags, in one write.
+
+Reads the entity, applies the changes to a copy, sends one `PUT /entities/{id}` carrying every
+updatable key from the read (so nothing the changes do not name is lost), then reads the entity back
+and checks each requested change. Safe to run twice: a change that is already in place is reported
+as unchanged and, when nothing differs, no write is made.
+
+Usage: hb-set <entity-id> [--dry-run] [changes...]
+
+Changes (each may be repeated where it makes sense):
+  --serial TEXT | --model TEXT | --manufacturer TEXT | --description TEXT | --notes TEXT
+  --purchase-from TEXT | --purchase-date YYYY-MM-DD | --purchase-price NUMBER | --quantity N
+  --field NAME=VALUE        set a text custom field, creating it when absent
+  --remove-field NAME       delete a custom field
+  --tag NAME | --untag NAME add or remove a tag by name (the tag must already exist)
+
+Empty values are refused; clear a built-in field by passing nothing for it and use
+--remove-field for custom fields. A custom field value over 500 characters is refused because the
+API answers 500 to it.
+
+Reads: the entity and /tags. Writes: that one entity. Prints one JSON context on stdout with the
+arguments, the steps, the per-change result and, on failure, an `error`. Exit 0 on success, 1 when
+the operation failed, 2 for a usage error.
+"""
+import json, os, subprocess, sys
+
+HB = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hb-api")
+UPDATE_KEYS = ["id", "name", "description", "notes", "manufacturer", "modelNumber", "serialNumber",
+               "purchaseFrom", "purchaseDate", "purchasePrice", "quantity", "insured", "archived",
+               "assetId", "lifetimeWarranty", "warrantyExpires", "warrantyDetails", "soldDate",
+               "soldNotes", "soldPrice", "soldTo"]
+BUILTIN = {"--serial": "serialNumber", "--model": "modelNumber", "--manufacturer": "manufacturer",
+           "--description": "description", "--notes": "notes", "--purchase-from": "purchaseFrom",
+           "--purchase-date": "purchaseDate", "--purchase-price": "purchasePrice", "--quantity": "quantity"}
+MAX_FIELD = 500
+
+
+def hb(method, path, body=None):
+    cmd = [HB, method, path] + (["-d", json.dumps(body)] if body is not None else [])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode or not r.stdout.strip():
+        raise RuntimeError(f"{method} {path} failed: {(r.stderr or r.stdout).strip()[:200]}")
+    out = json.loads(r.stdout)
+    if isinstance(out, dict) and out.get("error"):
+        raise RuntimeError(f"{method} {path} answered an error: {str(out)[:300]}")
+    return out
+
+
+def usage(msg):
+    print(msg, file=sys.stderr)
+    print(__doc__.split("\n\n")[1], file=sys.stderr)
+    sys.exit(2)
+
+
+def parse(args):
+    if not args or args[0].startswith("--"):
+        usage("hb-set needs an entity id first")
+    eid, rest = args[0], args[1:]
+    p = {"id": eid, "dry": False, "builtin": {}, "fields": {}, "remove": [], "tag": [], "untag": []}
+    i = 0
+    while i < len(rest):
+        a = rest[i]
+        if a == "--dry-run":
+            p["dry"] = True
+            i += 1
+            continue
+        if i + 1 >= len(rest):
+            usage(f"{a} needs a value")
+        v = rest[i + 1]
+        if not v.strip():
+            usage(f"{a} got an empty value")
+        if a in BUILTIN:
+            key = BUILTIN[a]
+            if a == "--purchase-date":
+                if len(v) != 10 or v[4] != "-" or v[7] != "-":
+                    usage("--purchase-date takes YYYY-MM-DD")
+                v = v + "T00:00:00Z"
+            elif a in ("--purchase-price", "--quantity"):
+                try:
+                    v = float(v) if a == "--purchase-price" else int(v)
+                except ValueError:
+                    usage(f"{a} takes a number")
+            p["builtin"][key] = v
+        elif a == "--field":
+            name, sep, val = v.partition("=")
+            if not sep or not name.strip() or not val.strip():
+                usage("--field takes NAME=VALUE with both parts non-empty")
+            if len(val) > MAX_FIELD:
+                usage(f"--field {name} value is {len(val)} characters; the limit is {MAX_FIELD}")
+            p["fields"][name.strip()] = val
+        elif a == "--remove-field":
+            p["remove"].append(v)
+        elif a == "--tag":
+            p["tag"].append(v)
+        elif a == "--untag":
+            p["untag"].append(v)
+        else:
+            usage(f"unknown option {a}")
+        i += 2
+    if not (p["builtin"] or p["fields"] or p["remove"] or p["tag"] or p["untag"]):
+        usage("no changes given")
+    return p
+
+
+def body_for(e, tag_ids, fields):
+    body = {k: e.get(k) for k in UPDATE_KEYS if e.get(k) is not None}
+    body["parentId"] = (e.get("parent") or {}).get("id")
+    body["entityTypeId"] = (e.get("entityType") or {}).get("id")
+    body["tagIds"] = tag_ids
+    body["fields"] = fields
+    return {k: v for k, v in body.items() if v is not None}
+
+
+def main():
+    p = parse(sys.argv[1:])
+    ctx = {"script": "hb-set", "args": {k: v for k, v in p.items()}, "steps": [], "results": []}
+    code = 0
+    try:
+        e = hb("GET", f"/entities/{p['id']}")
+        ctx["steps"].append({"step": "read", "name": e["name"]})
+        tags = {t["name"]: t["id"] for t in hb("GET", "/tags")}
+        for n in p["tag"] + p["untag"]:
+            if n not in tags:
+                raise ValueError(f"tag {n!r} does not exist")
+        new = dict(e)
+        new.update(p["builtin"])
+        tag_ids = [t["id"] for t in e["tags"]]
+        for n in p["tag"]:
+            if tags[n] not in tag_ids:
+                tag_ids.append(tags[n])
+        tag_ids = [t for t in tag_ids if t not in {tags[n] for n in p["untag"]}]
+        fields = [{k: f[k] for k in ("id", "name", "type", "textValue", "numberValue", "booleanValue", "timeValue") if k in f}
+                  for f in e["fields"]]
+        for name, val in p["fields"].items():
+            hit = [f for f in fields if f["name"] == name]
+            if hit:
+                hit[0]["type"], hit[0]["textValue"] = "text", val
+            else:
+                fields.append({"type": "text", "name": name, "textValue": val})
+        fields = [f for f in fields if f["name"] not in p["remove"]]
+        body = body_for(new, tag_ids, fields)
+        before = body_for(e, [t["id"] for t in e["tags"]],
+                          [{k: f[k] for k in ("id", "name", "type", "textValue", "numberValue", "booleanValue", "timeValue") if k in f}
+                           for f in e["fields"]])
+        if body == before:
+            ctx["steps"].append({"step": "nothing_to_change"})
+        elif p["dry"]:
+            ctx["steps"].append({"step": "dry_run", "would_write": True})
+        else:
+            hb("PUT", f"/entities/{p['id']}", body)
+            ctx["steps"].append({"step": "wrote"})
+            back = hb("GET", f"/entities/{p['id']}")
+            got_fields = {f["name"]: f["textValue"] for f in back["fields"]}
+            got_tags = {t["name"] for t in back["tags"]}
+            for key, val in p["builtin"].items():
+                ok = (back.get(key) or "")[:10] == val[:10] if key == "purchaseDate" else back.get(key) == val
+                ctx["results"].append({"change": key, "verified": ok})
+            for name, val in p["fields"].items():
+                ctx["results"].append({"change": f"field {name}", "verified": got_fields.get(name) == val})
+            for name in p["remove"]:
+                ctx["results"].append({"change": f"remove field {name}", "verified": name not in got_fields})
+            for n in p["tag"]:
+                ctx["results"].append({"change": f"tag {n}", "verified": n in got_tags})
+            for n in p["untag"]:
+                ctx["results"].append({"change": f"untag {n}", "verified": n not in got_tags})
+            ctx["steps"].append({"step": "read_back", "tags": sorted(got_tags), "field_names": sorted(got_fields)})
+            if not all(r["verified"] for r in ctx["results"]):
+                raise RuntimeError("read-back differs from the requested changes")
+    except Exception as ex:
+        ctx["error"] = {"after_step": ctx["steps"][-1]["step"] if ctx["steps"] else "start",
+                        "type": type(ex).__name__, "message": str(ex)}
+        code = 1
+    finally:
+        print(json.dumps(ctx, ensure_ascii=False))
+    sys.exit(code)
+
+
+main()
