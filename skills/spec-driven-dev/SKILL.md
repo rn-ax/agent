@@ -30,7 +30,7 @@ Samuel and an agent identify the acceptance criteria together. Agents then imple
 ## Method
 
 1. Find the files that apply: `rg -l` over the frontmatter in `spec/` (`tags:` and `description:` lines). Read their context and criteria before proposing anything.
-2. Identify the criteria together, one tightly scoped concept at a time. The agent picks the next concept, asks Samuel only the specific questions it needs to design it, and proposes that concept's criteria, a handful at most, in plain sentences. Samuel approves or corrects them as a multi-select of the criteria. Approved criteria are written to the functionality's file before the next concept is taken up. A new functionality gets its own file when it is large enough, and `general.md` takes the rest. A rule that changes is deleted and added again under a new number.
+2. Identify the criteria together, one tightly scoped concept at a time. The agent picks the next concept, asks the user only the specific questions it needs to design it, and proposes that concept's criteria, a handful at most, in plain sentences. The user approves or corrects them as a multi-select of the criteria. Approved criteria are written to the functionality's file before the next concept is taken up. A new functionality gets its own file when it is large enough, and `general.md` takes the rest. A rule that changes is deleted and added again under a new number.
 3. Implement against the criteria. There is no separate implementation plan, because the criteria are the plan and the agent decides the files, names and structure. Each criterion gets its own tests, tagged with its ID; a test that checks two criteria is split.
 4. Verify every criterion in CI before anything merges.
 
@@ -40,13 +40,13 @@ Where other information lives: what the concepts mean in the context of the spec
 
 ## Scenarios
 
-A scenario is a specific thing Samuel wants to accomplish with the app, kept as an issue with the label `scenario`. Its body is his account of it in his own words, with every detail he gave, and the issue is closed when the whole account is represented in the production app.
+A scenario is a specific thing the user wants to accomplish with the app, kept as an issue with the label `scenario`. Its body is the user's own account of it in their own words, with every detail given, and the issue is closed when the whole account is represented in the production app.
 
-1. Samuel gives the scenario. The agent opens the `scenario` issue (creating the label when the repo has none) and keeps his text verbatim.
+1. The user gives the scenario. The agent opens the `scenario` issue (creating the label when the repo has none) and keeps the text verbatim.
 2. The agent breaks the scenario down into the concepts the app needs to represent it. Each concept is its own issue that starts with `Part of #<scenario>`, and a concept an existing issue already covers is linked and not opened again. The scenario's body lists them as a checklist, with the entry of the scenario's data in production as its last item.
-3. Where a concept can be modelled in more than one way, its issue states the options and a recommendation, and Samuel decides in the issue before its criteria are written.
+3. Where a concept can be modelled in more than one way, its issue states the options and a recommendation, and the user decides in the issue before its criteria are written.
 4. Each concept follows the method above: criteria first, then tests and code, then the merge and deploy. Concepts are delivered in the order that lets the most of the scenario be entered after each deploy.
-5. After each deploy Samuel enters what the app can now represent. Whatever he cannot yet enter shows which concept comes next, and the checklist is updated as concepts land.
+5. After each deploy the user enters what the app can now represent. Whatever cannot yet be entered shows which concept comes next, and the checklist is updated as concepts land.
 6. The scenario is closed when all of it is entered.
 
 ## Delivery
