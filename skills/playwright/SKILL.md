@@ -13,6 +13,11 @@ description: Use whenever writing, running or re-recording Playwright end-to-end
 - The image tag equals the `@playwright/test` version.
 - Baselines are only re-recorded on amd64, which is what CI compares against.
 
+## Themes
+
+- Screenshot tests record and compare only the primary theme, the one the app is actually used in (dark for these apps), because the themes differ in color alone and each extra theme doubles the baselines to record and verify.
+- That an app has another theme is checked without images: emulate each color-scheme preference with `page.emulateMedia({ colorScheme })` and compare the page's background brightness. daisyUI declares its colors in `oklch()`, which a canvas converts to RGB.
+
 ## Running the container
 
 - The Playwright image is published for amd64 and arm64. A run on a machine of the other architecture uses the image natively, because emulating amd64 is several times slower, and compares with a pixel tolerance chosen from `process.arch`.
