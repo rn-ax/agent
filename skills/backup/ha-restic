@@ -1,0 +1,37 @@
+#!/bin/sh
+# ha-restic: back up the Home Assistant backups from the SMB share into a restic
+# repository, apply retention and verify. Runs on server.lan from launchd.
+#
+# Usage: ha-restic
+# Reads:  ~/.config/ha-restic/env (mode 600): HC_PING_URL, SMB_HOST, SMB_SHARE,
+#         SMB_USER, SMB_PASSWORD; ~/.config/ha-restic/restic-password (mode 600).
+# Writes: one restic snapshot per run in /Volumes/Backup/restic/home-assistant,
+#         pruned to 14 daily, 8 weekly and 12 monthly; pings Healthchecks.io at
+#         start, on success and on failure. The share is mounted at
+#         ~/.cache/ha-restic/mnt for the run and unmounted afterwards.
+# Exit codes: 0 success, 1 a step failed (also reported to Healthchecks.io).
+set -u
+export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+CONF=$HOME/.config/ha-restic
+. "$CONF/env"
+export RESTIC_REPOSITORY=/Volumes/Backup/restic/home-assistant
+export RESTIC_PASSWORD_FILE=$CONF/restic-password
+MNT=$HOME/.cache/ha-restic/mnt
+
+ping() { [ -n "${HC_PING_URL:-}" ] && curl -fsS -m 15 --retry 2 -o /dev/null --data-raw "${2:-}" "$HC_PING_URL${1:-}"; return 0; }
+cleanup() { umount "$MNT" 2>/dev/null; return 0; }
+fail() { echo "ha-restic: $1" >&2; cleanup; ping /fail "$1"; exit 1; }
+quote() { python3 -c 'import sys,urllib.parse as u; print(u.quote(sys.argv[1], safe=""))' "$1"; }
+trap cleanup EXIT
+
+ping /start
+mkdir -p "$MNT"
+umount "$MNT" 2>/dev/null
+mount_smbfs "//$(quote "$SMB_USER"):$(quote "$SMB_PASSWORD")@$SMB_HOST/$(quote "$SMB_SHARE" | sed 's/%2F/\//g')" "$MNT" >/dev/null 2>&1 || fail "could not mount the share"
+ls "$MNT"/*.tar >/dev/null 2>&1 || fail "no backups on the share"
+[ -n "$(find "$MNT" -maxdepth 1 -name '*.tar' -mmin -2160 | head -1)" ] || fail "newest Home Assistant backup is older than 36 hours"
+
+restic backup --tag home-assistant --host server.lan "$MNT"/*.tar >&2 || fail "restic backup failed"
+restic forget --tag home-assistant --host server.lan --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune >&2 || fail "restic forget failed"
+restic check --read-data-subset=5% >&2 || fail "restic check failed"
+ping
