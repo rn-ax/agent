@@ -23,7 +23,7 @@ Everything requires a signed-in login. Changes made by the agent login are recor
 
 Records are plain PocketBase collections, `/api/collections/<name>/records`. Every list is small enough to fetch whole (`perPage=500`).
 
-- **places**: `name`, `type` (`food`, `lodging`, `airport`, `station`, `harbor`, `home`, `other`), and optionally a lookup snapshot, `source` (`nominatim`), `source_id`, `latitude`, `longitude`, which are given all together or not at all and never change afterwards. Names are not unique, and a new place is always a new record, so look for an existing one before creating.
+- **places**: `name`, `type` (`food`, `lodging`, `airport`, `station`, `harbor`, `home`, `other`), `url` (optional, starting with `http://` or `https://`), and a location that every place has and that never changes afterwards: `source`, `latitude` and `longitude`, and `source_id` for a lookup result. The source is `nominatim` with the id of the lookup result, or `manual` with no id for a spot placed by hand, and a place without a location is refused. Names are not unique, and a new place is always a new record, so look for an existing one before creating.
 - **visits**: `place`, `start` (required), `end` (optional), `rating` (1 to 5, left out when unrated), `tags` (a list of words of lowercase letters, digits and hyphens, no repeats, without a `#`), `trip` (optional, fixed when the visit is created).
 - **trips**: no fields. A trip is shown by what it holds, so create it with `{}` and then give visits and transportations its id.
 - **transportations**: `trip`, `from_place`, `to_place`, `mode` (`car`, `flight`, `train`, `ferry`, `bus`), `departure`, `arrival` (all required, the arrival not before the departure), `name` (optional, such as a vessel's).
@@ -35,16 +35,18 @@ A place that has visits or transportations cannot be deleted, a trip that has ei
 
 ## Place lookup
 
-`GET /api/places/search?q=<text>` asks OpenStreetMap (Nominatim) for candidates and answers a list of `{name, display_name, type, source, source_id, latitude, longitude}`. It allows one real search per second, caches repeats, and answers 429 when called too fast, so wait and retry. Create the place with the candidate's `source`, `source_id`, `latitude` and `longitude`, the name the user knows it by, and the trotter `type`. A place with no good candidate is created by name and type alone and has no location.
+`GET /api/places/search?q=<text>` asks OpenStreetMap (Nominatim) for candidates and answers a list of `{name, display_name, type, source, source_id, latitude, longitude}`. It allows one real search per second, caches repeats, and answers 429 when called too fast, so wait and retry. Create the place with the candidate's `source`, `source_id`, `latitude` and `longitude`, the name the user knows it by, and the trotter `type`. When no candidate is the place, find a spot another way (the address of its building, searched through this lookup or on the web, or a shopping centre or street it is in) and create it with `source` `manual`, that spot's `latitude` and `longitude`, and no `source_id`; the user is told which places were placed by hand.
 
 ## Entering a trip
 
 The account of a trip is a list of places visited, stays, meals and moves. Each write is one request, and the agent checks the answer before the next.
 
 1. Read what already exists: `places`, `trips` and `visits` (`perPage=500`), so nothing is entered twice.
-2. For each place not yet there, look it up, choose the candidate whose `display_name` matches what the user described (the right district and city), and create the place. Report the candidates chosen, and the places created by name only.
+2. For each place not yet there, look it up, choose the candidate whose `display_name` matches what the user described (the right district and city), and create the place. Report the candidates chosen, and the places placed by hand with the spot used.
 3. Create the trip with `{}`, then each visit and transportation with its `trip`.
 4. Times the user did not give (a meal's clock time, a check-in) are estimated by the agent and reported as estimates, since every visit and transportation needs them.
 5. Read the trip back (`trip = "<id>"` as the filter, with `expand=place` or `expand=from_place,to_place`) and compare it with the account, item by item, before reporting it done.
 
 A change to a record is an `update` of that record; to correct a mistake in a trip, update the record, and delete a visit or transportation only when it should not exist.
+
+A visit's place can be changed through the agent login, which an administrator may do although the owner cannot (for example to give a visit the corrected copy of a place); the history log records it.
