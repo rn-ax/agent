@@ -106,6 +106,24 @@ Windmill apps/scripts (`f/<name>`, `f/apps/<name>__raw_app`, `f/app-models/<name
 
 **Planned, not yet built**: delegating actual job *execution* to external Windmill worker containers on the Contabo hosts (`contabo-1`/`contabo-2`, see the `contabo-hosts` skill), with TrueNAS staying a lightweight coordinator (server + Postgres only). Checked what this actually needs (2026-09-27), and it's not just a worker deploy: `docker ps` on TrueNAS shows `ix-windmill-postgres-1` publishes no host port at all (`5432/tcp`, no `0.0.0.0:...->5432` mapping) — only Caddy is (`30155-30156`). Postgres only exists on the `ix-windmill` Docker network today, unreachable from outside the TrueNAS host regardless of network path. The Contabo boxes' confirmed WARP route to TrueNAS's LAN IP (see `contabo-hosts`) gets a packet to the *host*, but that's moot until Postgres is actually published on it (or reached some other way, e.g. an SSH tunnel) — don't assume the network path alone clears this; it doesn't.
 
+## Realtime updates (progress and other out-of-band information)
+
+Windmill has a built-in realtime channel from a running job to a browser, so progress and any other live information reach a page without polling. Established 2026-11-15 with preview jobs on this instance.
+
+**Publish**: a running Python script calls `wmill.append_to_result_stream(text)`. Each call is one chunk of that job's result stream. The TypeScript client offers an equivalent that has not been tried here.
+
+**Receive**: the stream is server-sent events at `GET /api/w/<workspace>/jobs_u/getupdate_sse/<job id>?fast=true`. Each event is JSON, `{"type":"update", ...}`, and carries any of `new_result_stream` (the chunk text), `stream_offset`, `new_logs`, and `flow_status` for a flow. The last event has `"completed": true` and the whole job, result included. In a raw app, `backendAsync.<runnable>(args)` returns the job id and `streamJob(jobId, onUpdate)` consumes the stream and resolves with the job's result.
+
+**Chunks can arrive merged**. A subscriber that connects while the job runs receives everything published so far as one `new_result_stream` (chunks `10` and `50` arrived as `1050`). A chunk is therefore a newline-terminated message, usually one line of JSON, and a reader splits on newlines.
+
+**A flow job's stream is empty of its steps' chunks**. A step publishes into its own job's stream, and the flow job only reports `flow_status.modules[].job`, the id of each step's job. A page follows the step's job. A step can read its own id from `WM_JOB_ID`, and `WM_ROOT_FLOW_JOB_ID` names the flow job that every step shares, which is the id `backendAsync` returned for a flow.
+
+**The stream is for live display only**. Whatever must outlive the job (a final state, the last percentage) is written to the app's own database, because Windmill removes finished jobs after its retention period (capped at 30 days, see above).
+
+**Not yet verified**: whether an anonymous public raw app may stream a job id it did not start itself, such as one read from the app's database. Check it on the deployed app before building a page on it.
+
+**Probe recipe** (a preview job, nothing deployed): start it with `wm-api POST /jobs/run/preview -H 'Content-Type: application/json' --data @job.json`, where `job.json` is `{"language":"python3","content":"<script that calls wmill.append_to_result_stream in a loop with time.sleep>","args":{}}`. It prints the job id, and `wm-api GET "/jobs_u/getupdate_sse/<id>?fast=true" -N --max-time 25` prints the events as they arrive. `POST /jobs/run/preview_flow` takes `{"value":{"modules":[...]},"args":{}}` the same way.
+
 ## Scheduled jobs
 
 **Window**: 3–5 AM is the preferred time for any recurring Windmill schedule — low-traffic hours with no interactive use to disrupt. Check `wmill schedule` for what's already scheduled before picking a new time, and spread schedules across different days/times within that window rather than clustering them at the same slot, so jobs don't pile up or contend for the same resources (TrueNAS API rate limits, Docker daemon load, etc.) on any one morning. Use the instance's actual system timezone (`Europe/Helsinki` — confirmed via `tn-api system.info`, see the `truenas` skill), not UTC or the agent session's own TZ, so "3-5 AM" means the same wall-clock time the user would expect. Pick a non-round minute (e.g. `:15`, not `:00`) as a light habit against every schedule firing at the same instant, even when there's only one today.
