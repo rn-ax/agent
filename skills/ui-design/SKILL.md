@@ -27,6 +27,10 @@ Every interface is used on a phone and on a desktop browser, and works well on b
 
 One page serves both. Its structure is a layout that reflows between the sizes, and the same content, actions and URLs exist at each size. A feature is built once and shown differently, never built twice.
 
+## Labels about the app itself
+
+A label that says something about the app, such as its version and build time, is small, subdued text at the bottom right of the end of the page, in the page's flow after the content. It scrolls with the page, so it covers nothing at any size.
+
 ## Checking
 
 Look at the page at a phone width and at a desktop width. In the rn-ax apps the Playwright screenshot tests run a `mobile` and a `desktop` project over the same pages, so a layout that fails at one size shows up as a screenshot that needs to be looked at.
