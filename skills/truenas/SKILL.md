@@ -11,7 +11,7 @@ This is the accumulating knowledge base for the user's TrueNAS server. Fill in e
 
 ## Instance
 
-Reachable at `truenas.lan` (`192.168.1.142`) on the home LAN. SSH via the `truenas` alias in `~/.ssh/config` (`ssh truenas`), logged in as `admin` — not `root` or any other user — because `admin` is the one with sudo rights; most real troubleshooting (docker, systemd, zfs) needs sudo, so log in as `admin` from the start rather than discovering the wrong user lacks it partway through.
+Reachable at `truenas.machine.rn.ax` (`192.168.1.142`) on the home LAN. That is the one name written into configuration, documentation, URLs and tests for this box; a place that needs a different name says why. SSH via the `truenas` alias in `~/.ssh/config` (`ssh truenas`), logged in as `admin` — not `root` or any other user — because `admin` is the one with sudo rights; most real troubleshooting (docker, systemd, zfs) needs sudo, so log in as `admin` from the start rather than discovering the wrong user lacks it partway through.
 
 SSH access is configured via **System → Services → SSH** (Running, Start Automatically enabled) and **Credentials → Local Users → `admin` → SSH Public Key**.
 
@@ -85,7 +85,8 @@ When asked to install a TrueNAS catalog app end-to-end (not just troubleshoot on
 6. **Build the `app.create` payload** matching the schema from step 2 exactly (group → variable nesting), push it to the box, and call `sudo midclt call app.create "$(cat file.json)"` — returns a job id, not a synchronous result.
 7. **Poll `core.get_jobs` for that job id** until it leaves `RUNNING`/`WAITING`, then check `sudo docker ps -a --filter "label=com.docker.compose.project=ix-<app>"` for real container health — `app.query`'s own state can read `RUNNING` while one container in the compose project is still crash-looping, so don't trust the app-level state alone as proof everything actually works.
 8. **For an app not in the catalog** (a "Custom App"), there's no schema/template to read — `app.create` instead takes `custom_app: true` plus `custom_compose_config_string` (raw YAML) or `custom_compose_config` (parsed object), with no `permissions` init container and no automatic UID/ownership help at all; own the mount ownership entirely yourself from dataset-creation time.
-9. **If it fails opaquely** (`[EFAULT] Failed 'up' action...`, no real detail in `/var/log/app_lifecycle.log`), use the technique in "Diagnosing an opaque install failure" below.
+9. **Register the app.** An app with a web UI gets a tile on the landing page (the `homepage` skill) and a monitor in Uptime Kuma (the `uptime-kuma` skill), both as part of the install.
+10. **If it fails opaquely** (`[EFAULT] Failed 'up' action...`, no real detail in `/var/log/app_lifecycle.log`), use the technique in "Diagnosing an opaque install failure" below.
 
 Two gotchas that apply to *any* custom app, not just one specific app:
 
