@@ -35,11 +35,12 @@ Both boxes run GitHub Actions self-hosted runners as native processes (role `git
 |---|---|---|
 | `rn-ax/monocoque` | `/opt/github-runner` | `self-hosted, Linux, X64, contabo` |
 | `rn-ax/windmill` | `/opt/github-runner-windmill` | `self-hosted, Linux, X64, contabo` |
+| `rn-ax/homepage` | `/opt/github-runner-homepage` | `self-hosted, Linux, X64, contabo` |
 | `rn-ax/actions` | `/opt/github-runner-actions` | `self-hosted, Linux, X64, contabo` — **repo is archived, so this runner is currently a no-op**; GitHub blocks Actions execution entirely on archived repos (job stays `queued` forever with zero job records, eventually auto-cancelled — this was the actual root cause of that repo's `mirror-base-images.yml` failures, not a runner problem) |
 
 All run as the same `github-runner` system user (uid/gid consistent across boxes), installed via the vendor's own `svc.sh` as a systemd service named `actions.runner.<org>-<repo>.<hostname>.service`.
 
-**To register a new repo's runner** (on each box that should carry it):
+**A repo's runner is registered on both boxes**, so the two share the load of its jobs. **To register a new repo's runner** (repeat for `contabo-1` and `contabo-2`, with `--name` set to the box):
 ```sh
 TOKEN=$(gh api -X POST repos/rn-ax/<repo>/actions/runners/registration-token --jq .token)
 ssh contabo-N "sudo mkdir -p /opt/github-runner-<repo> && sudo chown github-runner:github-runner /opt/github-runner-<repo> && sudo -u github-runner bash -c 'cd /opt/github-runner-<repo> && curl -fsSL -o runner.tar.gz https://github.com/actions/runner/releases/download/v<version>/actions-runner-linux-x64-<version>.tar.gz && tar xzf runner.tar.gz && rm runner.tar.gz'"

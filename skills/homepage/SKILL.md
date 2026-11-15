@@ -11,6 +11,8 @@ The landing page for the apps running on TrueNAS: [Homepage](https://gethomepage
 
 ## Instance
 
+The page shows only app tiles. `bookmarks.yaml` and `widgets.yaml` are empty files in the repo, because Homepage fills any config file it does not find with sample bookmarks and widgets.
+
 The page is at `http://truenas.machine.rn.ax:30054`, on the home network only; it has no Cloudflare tunnel hostname. It is the catalog app `homepage` (community train), running as UID 1000 without the Docker socket, with `HOMEPAGE_ALLOWED_HOSTS` set to `truenas.machine.rn.ax:30054`. Every tile is declared in the YAML, so the container has no view of other containers.
 
 The configuration lives in the private repo `rn-ax/homepage` (local clone `~/Projects/rn-homepage`), whose `spec/` holds the acceptance criteria and whose `AGENTS.md` holds the delivery details. The config dataset `Storage/Configuration/homepage/config` receives the repo's `config/` through an S3 push; the repo is the source of truth, and a file edited on the dataset is overwritten by the next deploy.
@@ -20,7 +22,7 @@ The configuration lives in the private repo `rn-ax/homepage` (local clone `~/Pro
 An app with a web UI gets a tile as part of being installed on TrueNAS.
 
 1. Open the repo's `config/services.yaml`.
-2. Add `Name: {href, icon}` to the group that fits (`Media`, `Home`, `Admin` or `Own apps`), or add a group when none fits. `href` is `http://truenas.machine.rn.ax:<port>` with the app's published port (`tn-api app.query '[["id","=","<app>"]]'` shows it under `portals`), or an `https://` URL. `icon` is a name from [dashboard-icons](https://github.com/homarr-labs/dashboard-icons) and is left out when none exists.
+2. Add `Name: {href, icon, description}` to the group that fits, or add a group when none fits. Groups say what an app does (`Media`, `Downloads`, `Music and books`, `Planning and tracking`, `Household`, `System`); the project an app belongs to plays no part. `href` is `http://truenas.machine.rn.ax:<port>` with the app's published port (`tn-api app.query '[["id","=","<app>"]]'` shows it under `portals`), or an `https://` URL. A Windmill app has `http://truenas.machine.rn.ax:30155/apps/get/p/f/apps/<folder>` (`wm-api GET /apps/list` lists the folders), so a new Windmill app gets its tile too. An app whose name does not say what it does gets a one-line `description`. `icon` is a name from [dashboard-icons](https://github.com/homarr-labs/dashboard-icons) and is left out when none exists.
 3. Run `mise run test`. It enforces the rules of `spec/entries.md`: a unique name, a group, and an allowed `href`.
 4. Open the pull request with the `agent-code-pusher` flow. The repo's CI merges it once the build passes and deploys the merged commit, so there is nothing to merge or deploy by hand.
 
