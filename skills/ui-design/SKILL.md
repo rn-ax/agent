@@ -22,6 +22,9 @@ Every interface is used on a phone and on a desktop browser, and works well on b
 
 - The layout uses the width of the screen: content is laid out in wider columns, a list and its detail sit side by side, and a form's fields use the room they have, so the page does not become a narrow strip in the middle of a wide screen.
 - Information that was left out of a phone's row is shown, since there is room for it.
+- The page sits in a centered container of a reasonable maximum width (72rem in the rn-ax apps), so the width of the screen is never the width of the page. A page with a table of many columns uses the full width of that container.
+- A page is divided into sections, one below the other. Each section is one column or has columns on a wide screen, and a section with columns is one column on a phone.
+- In a section with two columns, detail goes in the left column and the context it belongs to in the right one: a place's details and visits on the left and its map on the right. Two different things that belong together, such as a place and its visits or the two halves of a form, can also sit side by side.
 
 ### The same page at every size
 
