@@ -59,6 +59,7 @@ A scenario is a specific thing the user wants to accomplish with the app, kept a
 Every repo that uses the method satisfies these delivery rules. They belong to the method, so a repo's `spec/` does not repeat them.
 
 - A pull request whose CI checks pass is merged without human action, and one with a failing check is never merged.
+- Pull requests are opened ready for review. A passing PR merges itself, so a draft would only block the merge; work that has to wait for another issue stays on its branch until that issue is closed, and the PR is opened then.
 - A commit merged to the default branch is deployed without human action once CI on that commit passes.
 - Every deploy is preceded by a backup of the SQLite database whose name ends in a UTC timestamp, and a deploy does not start when its backup failed.
 - A deployed version can be rolled back by running the previous version against the database restored from the backup taken before that deploy. Writes made after that deploy are lost.
