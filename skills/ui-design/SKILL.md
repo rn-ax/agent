@@ -16,12 +16,16 @@ Every interface is used on a phone and on a desktop browser, and works well on b
 - Show only what the user needs at that moment. Information that is secondary is left out of lists and rows, or moved behind a tap, so a row stays readable at phone width.
 - Elements take the width of the screen and rearrange as it narrows: a row of buttons wraps or stacks, side-by-side columns become one column in an order that puts the most important thing first, long text wraps or is cut with the full text one tap away.
 - Large or optional sections collapse and expand, so the page does not become a long scroll of everything at once.
+- A table shows only its necessary columns, in an order that still reads, and scrolls inside the page when even those do not fit (see Tables).
 - Touch targets are large enough to hit, and nothing sits where it covers content that has to be reached, such as a fixed label over the bottom of a form.
 
 ### On desktop
 
 - The layout uses the width of the screen: content is laid out in wider columns, a list and its detail sit side by side, and a form's fields use the room they have, so the page does not become a narrow strip in the middle of a wide screen.
 - Information that was left out of a phone's row is shown, since there is room for it.
+- The page sits in a centered container of a reasonable maximum width (72rem in the rn-ax apps), so the width of the screen is never the width of the page. A page with a table of many columns uses the full width of that container.
+- A page is divided into sections, one below the other. Each section is one column or has columns on a wide screen, and a section with columns is one column on a phone.
+- In a section with two columns, detail goes in the left column and the context it belongs to in the right one: a place's details and visits on the left and its map on the right. Two different things that belong together, such as a place and its visits or the two halves of a form, can also sit side by side.
 
 ### The same page at every size
 
@@ -38,6 +42,9 @@ The version label reads `v2026.11.15.73 (3s ago)`: the version, then how long ag
 - Every table opens in its natural order, and every column sorts, by the value and not by the text shown (an ISO time, a number). A table paged by the backend sorts and filters there, so a sort orders every row and not only the page on screen.
 - Filters are checkboxes in a bar above the table, one per filter, labelled by what they narrow to; a ticked filter narrows the list and several narrow it together. A choice of one value (an event type) is a select in the same bar.
 - A time reads as how long ago it was (`5 minutes ago`), with the exact date and time on hover, and its column sorts by the time itself.
+- Decide, when a table is designed, which columns are absolutely necessary and which are only useful. A necessary column is one the row cannot be recognised or acted on without (a title, a state, the action); a useful one adds detail (a path, an album, an end time). Ranking them is what makes the table usable on a phone.
+- On a phone the useful columns are hidden (they come back on desktop), and the necessary ones keep an order that still makes sense: the column that identifies the row first, then where it stands (its state or progress), then when, and the row's action last, so a row with the hidden columns removed still reads as one line of meaning. In the Windmill apps a column hides below the tablet width with `hide: Media.MD`.
+- When no more columns can be hidden and the table is still wider than the screen, the table scrolls sideways inside its own container, within the page. The page itself never scrolls sideways or breaks, and a table is never squeezed until its text wraps badly (a badge, a percentage or a time onto two lines): it keeps a minimum width instead.
 
 ## Dark layouts
 
