@@ -1,6 +1,6 @@
 ---
 name: windmill
-description: Use whenever the user asks for help with their Windmill instance — scripts, flows, triggers, workers, the AI copilot, or anything about "windmill" or "windmill.rn.ax" explicitly. This is the accumulating knowledge base for how this user's Windmill instance is actually set up, so read it before assuming its architecture, access method, or conventions from scratch.
+description: Use whenever the user asks for help with their Windmill instance — scripts, flows, triggers, workers, the AI copilot, or anything about "windmill" or "windmill.rn.ax" explicitly — and whenever a page or app needs live progress, realtime or out-of-band updates from a running job (server-sent events, result streaming, `streamJob`, `append_to_result_stream`), the way to avoid polling. This is the accumulating knowledge base for how this user's Windmill instance is actually set up, so read it before assuming its architecture, access method, or conventions from scratch.
 ---
 
 # Windmill
@@ -20,6 +20,37 @@ Self-hosted on TrueNAS (`truenas.lan`) as the `windmill` app in TrueNAS's Apps c
 API access credentials (base URL, token, workspace) live in the "Windmill" item in the "Agent" 1Password vault: `password` = token, the standard **website** field = base URL, plus a custom `workspace` field. The website field isn't readable via `op item get --fields` — it's in the item's `urls` array, not `fields` — so it needs `item get --format json | jq -r '.urls[0].href'` instead. Use `wm-api <method> <path> [curl-args...]` (this skill's own directory) for an already-authenticated REST call against it, e.g. `wm-api GET /scripts/list?per_page=3`. `<path>` is relative to `<base_url>/api/w/<workspace>`. Like `cloudflare`'s `cf-api`, this goes through `~/tasks/op-service-account` (see the `rn-config` skill), so it needs that machine's `op-service-account-agent` Keychain entry set up first.
 
 **Workspace**: id/slug `agent`. Trust the 1Password item's `workspace` field over any id written here — `wm-api` reads it live, and Windmill's rename operation changes the id itself (not just a display label), so a hardcoded id can go stale silently (`/api/w/<old-id>/...` returns an empty list rather than an error). Created for agent use specifically. The instance also has a separate **`admins`** workspace (created during initial instance setup, per Windmill's own onboarding prompt) that this token has no access to at all — `GET /api/workspaces/list` with it only ever returns the one workspace. This turned out not to matter for git-sync (see below) — a resource created via API directly in this workspace worked fine once selected in the UI — but it's worth knowing this second workspace exists and the agent's token can't see into it, in case something else workspace-level comes up empty for no apparent reason.
+
+## Live updates from a job to the browser (server-sent events)
+
+**Use this whenever a page needs to show something that happens while a job runs**: progress, status, partial results, a log line, a notification, anything the backend knows before the job ends. It is the way to communicate from backend to frontend in a Windmill app, and the reason a page never has to poll. Established 2026-11-15 with preview jobs on this instance; the reference implementation is the music app in `rn-ax/windmill` (`f/realtime/publish.py`, `f/apps/music__raw_app/events.ts`, `useJobStream.ts`, `Downloads.tsx`).
+
+**Publish** from any running Python script. An event is one line of JSON:
+
+```python
+from f.realtime.publish import publish   # wraps wmill.append_to_result_stream; does nothing outside a job
+
+publish({"percent": 40})
+```
+
+**Receive** in a raw app. A runnable started with `backendAsync` gives a job id, and the hook follows that job:
+
+```tsx
+useJobStream(jobId, (event) => setPercent((event as { percent: number }).percent), () => reload())
+```
+
+`onEvent` gets each published event and `onEnd` is called once when the job has ended, whether it succeeded or failed. `followJob` in `events.ts` is the same without React.
+
+**How it works**: the stream is server-sent events at `GET /api/w/<workspace>/jobs_u/getupdate_sse/<job id>?fast=true`. Each event is JSON, `{"type":"update", ...}`, carrying any of `new_result_stream` (the chunk text), `stream_offset`, `new_logs`, and `flow_status` for a flow. The last event has `"completed": true` and the whole job, result included. In a raw app, `streamJob(jobId, onUpdate)` consumes it and resolves with the job's result.
+
+**Pitfalls**:
+- **Chunks can arrive merged.** A subscriber that connects while the job runs receives everything published so far as one `new_result_stream` (chunks `10` and `50` arrived as `1050`), so every event ends with a newline and a reader splits on newlines, keeping a partial last line for the next chunk (`readEvents`).
+- **A flow job's stream is empty of its steps' chunks.** A step publishes into its own job's stream, and the flow job only reports `flow_status.modules[].job`. The page follows the step's job. A step reads its own id from `WM_JOB_ID`, and `WM_ROOT_FLOW_JOB_ID` names the flow job that every step shares, which is the id `backendAsync` returned for a flow. The music app stores the step's id on the download's database row, and the page follows that.
+- **The stream is for live display only.** Whatever must outlive the job (a final state, the last percentage) is written to the app's database, because Windmill removes finished jobs after its retention period (capped at 30 days, see below). The page shows the database's value when it opens and the stream's from then on.
+- **Not yet verified**: whether an anonymous public raw app may stream a job id it did not start itself, such as one read from the app's database. Check it on the deployed app before building a page on it.
+- Only Python publishing is tried. The TypeScript client offers an equivalent that has not been tried here.
+
+**Probe recipe** (a preview job, nothing deployed): start it with `wm-api POST /jobs/run/preview -H 'Content-Type: application/json' --data @job.json`, where `job.json` is `{"language":"python3","content":"<script that calls wmill.append_to_result_stream in a loop with time.sleep>","args":{}}`. It prints the job id, and `wm-api GET "/jobs_u/getupdate_sse/<id>?fast=true" -N --max-time 25` prints the events as they arrive. `POST /jobs/run/preview_flow` takes `{"value":{"modules":[...]},"args":{}}` the same way.
 
 ## AI copilot
 
@@ -105,24 +136,6 @@ Windmill apps/scripts (`f/<name>`, `f/apps/<name>__raw_app`, `f/app-models/<name
 **Retention / Instance object storage**: both are Enterprise-Edition-gated settings visible in the setup wizard even on the Community Edition this instance runs. Retention silently caps at 30 days regardless of what's entered; instance object storage (S3/Azure-backed log offload + shared Python/Go dependency cache across workers) does nothing without a paid license. Both left at defaults/blank.
 
 **Planned, not yet built**: delegating actual job *execution* to external Windmill worker containers on the Contabo hosts (`contabo-1`/`contabo-2`, see the `contabo-hosts` skill), with TrueNAS staying a lightweight coordinator (server + Postgres only). Checked what this actually needs (2026-09-27), and it's not just a worker deploy: `docker ps` on TrueNAS shows `ix-windmill-postgres-1` publishes no host port at all (`5432/tcp`, no `0.0.0.0:...->5432` mapping) — only Caddy is (`30155-30156`). Postgres only exists on the `ix-windmill` Docker network today, unreachable from outside the TrueNAS host regardless of network path. The Contabo boxes' confirmed WARP route to TrueNAS's LAN IP (see `contabo-hosts`) gets a packet to the *host*, but that's moot until Postgres is actually published on it (or reached some other way, e.g. an SSH tunnel) — don't assume the network path alone clears this; it doesn't.
-
-## Realtime updates (progress and other out-of-band information)
-
-Windmill has a built-in realtime channel from a running job to a browser, so progress and any other live information reach a page without polling. Established 2026-11-15 with preview jobs on this instance.
-
-**Publish**: a running Python script calls `wmill.append_to_result_stream(text)`. Each call is one chunk of that job's result stream. The TypeScript client offers an equivalent that has not been tried here.
-
-**Receive**: the stream is server-sent events at `GET /api/w/<workspace>/jobs_u/getupdate_sse/<job id>?fast=true`. Each event is JSON, `{"type":"update", ...}`, and carries any of `new_result_stream` (the chunk text), `stream_offset`, `new_logs`, and `flow_status` for a flow. The last event has `"completed": true` and the whole job, result included. In a raw app, `backendAsync.<runnable>(args)` returns the job id and `streamJob(jobId, onUpdate)` consumes the stream and resolves with the job's result.
-
-**Chunks can arrive merged**. A subscriber that connects while the job runs receives everything published so far as one `new_result_stream` (chunks `10` and `50` arrived as `1050`). A chunk is therefore a newline-terminated message, usually one line of JSON, and a reader splits on newlines.
-
-**A flow job's stream is empty of its steps' chunks**. A step publishes into its own job's stream, and the flow job only reports `flow_status.modules[].job`, the id of each step's job. A page follows the step's job. A step can read its own id from `WM_JOB_ID`, and `WM_ROOT_FLOW_JOB_ID` names the flow job that every step shares, which is the id `backendAsync` returned for a flow.
-
-**The stream is for live display only**. Whatever must outlive the job (a final state, the last percentage) is written to the app's own database, because Windmill removes finished jobs after its retention period (capped at 30 days, see above).
-
-**Not yet verified**: whether an anonymous public raw app may stream a job id it did not start itself, such as one read from the app's database. Check it on the deployed app before building a page on it.
-
-**Probe recipe** (a preview job, nothing deployed): start it with `wm-api POST /jobs/run/preview -H 'Content-Type: application/json' --data @job.json`, where `job.json` is `{"language":"python3","content":"<script that calls wmill.append_to_result_stream in a loop with time.sleep>","args":{}}`. It prints the job id, and `wm-api GET "/jobs_u/getupdate_sse/<id>?fast=true" -N --max-time 25` prints the events as they arrive. `POST /jobs/run/preview_flow` takes `{"value":{"modules":[...]},"args":{}}` the same way.
 
 ## Scheduled jobs
 
