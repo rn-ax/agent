@@ -21,7 +21,19 @@ API access credentials (base URL, token, workspace) live in the "Windmill" item 
 
 **Workspace**: id/slug `agent`. Trust the 1Password item's `workspace` field over any id written here — `wm-api` reads it live, and Windmill's rename operation changes the id itself (not just a display label), so a hardcoded id can go stale silently (`/api/w/<old-id>/...` returns an empty list rather than an error). Created for agent use specifically. The instance also has a separate **`admins`** workspace (created during initial instance setup, per Windmill's own onboarding prompt) that this token has no access to at all — `GET /api/workspaces/list` with it only ever returns the one workspace. This turned out not to matter for git-sync (see below) — a resource created via API directly in this workspace worked fine once selected in the UI — but it's worth knowing this second workspace exists and the agent's token can't see into it, in case something else workspace-level comes up empty for no apparent reason.
 
-## Live updates from a job to the browser (server-sent events)
+## Backend to frontend communication in raw apps
+
+A raw app's page talks to its backend runnables in three ways, and the choice is how much the page needs to know while the work runs:
+
+| Need | Use | Result |
+|---|---|---|
+| The answer to one quick request | `backend.<runnable>(args)` | Runs and waits, resolves with the result |
+| The answer to long work, with nothing to show meanwhile | `backendAsync.<runnable>(args)` then `waitJob(jobId)` | Starts the job, resolves with the result when it ends |
+| **Anything the backend knows while the work runs: progress, status, partial results, notifications** | **Live updates over server-sent events (below)** | **The script publishes events and the page receives them as they happen** |
+
+Live updates are the way to get information from the backend to the page without the page asking for it, so they replace polling: a page never polls, because every poll is a job that mostly finds nothing new. Reach for them first whenever a page would otherwise refresh, retry or "check again".
+
+### Live updates from a job to the browser (server-sent events)
 
 **Use this whenever a page needs to show something that happens while a job runs**: progress, status, partial results, a log line, a notification, anything the backend knows before the job ends. It is the way to communicate from backend to frontend in a Windmill app, and the reason a page never has to poll. Established 2026-11-15 with preview jobs on this instance; the reference implementation is the music app in `rn-ax/windmill` (`f/realtime/publish.py`, `f/apps/music__raw_app/events.ts`, `useJobStream.ts`, `Downloads.tsx`).
 
