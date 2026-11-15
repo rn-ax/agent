@@ -31,7 +31,7 @@ One page serves both. Its structure is a layout that reflows between the sizes, 
 
 A label that says something about the app, such as its version and when it was deployed, is small, subdued text at the bottom right of the end of the page, in the page's flow after the content. It scrolls with the page, so it covers nothing at any size.
 
-The version label reads `v2026.11.15.73 (3s ago)`: the version, then how long ago it was deployed as a compact age (`3s`, `5m`, `2h`, `4d`), and hovering it shows the exact date and time of the deploy in the user's time zone. The age comes from the time the deploy recorded, so nothing else is stored for it, and an app running without a deploy time (a local preview) shows the version alone. Every app shows it the same way.
+The version label reads `v2026.11.15.73 (3s ago)`: the version, then how long ago it was deployed as a compact age (`3s`, `5m`, `2h`, `4d`), and hovering it shows the exact date and time of the deploy in the user's time zone. The version itself is a link to the release of that version (releases are tagged with the version), so the footer leads to what changed. The age comes from the time the deploy recorded, so nothing else is stored for it, and an app running without a deploy time (a local preview) shows the version alone. Every app shows it the same way.
 
 ## Tables
 
