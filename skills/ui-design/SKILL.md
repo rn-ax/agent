@@ -43,9 +43,11 @@ The version label reads `v2026.11.15.73 (3s ago)`: the version, then how long ag
 
 An app that is always dark sets its theme once, on the document root, and every part of every component is checked in it, not only the parts that were themed on purpose.
 
-- A component library ships light colours as its defaults, often as the fallbacks of its CSS variables, and styles its native controls (a page-size select, scrollbars, checkboxes, date pickers) by a colour scheme that defaults to light. A table with only some of its colours themed looks dark in its rows and light in its pagination, its select and its scrollbars. Set every colour variable the library reads, and set its colour scheme to dark.
-- Check the theme against the library's own stylesheet, not by eye: a test lists the colour variables the stylesheet falls back to a light colour for and fails when the app does not set one. A library upgrade that adds a colour then fails a test, not a page.
-- A rule that targets a library's class names is checked against the installed version. Names change between major versions (`rdt_Table` in react-data-table-component 7, `rdt_table` in 8), and a rule for a class that does not exist matches nothing and reports no error, so a test lists the classes the app styles and checks that the installed stylesheet has them.
+- Look at the rendered page. A stylesheet or a test that reads as dark can still render light, and the first fix to the music app's tables was exactly that: the CSS looked right and the tables stayed white. Build the app against a stub backend with canned rows, screenshot every page in a browser, and read the computed colours of whatever looks wrong.
+- A component library has its own theme option, and it may write its colours as an inline style on the component's root. An inline style beats a CSS variable set on an ancestor, so setting the library's variables on a wrapper does nothing, and one variable that has no default in the library's light theme can look dark and hide that. Give the component a dark theme through its own option, built from the app's theme variables, and set its colour scheme to dark so native controls (a page-size select, scrollbars, checkboxes, date pickers) follow.
+- Test the theme by rendering a component and reading what it writes, not by reading the stylesheet. A separate check against the library's stylesheet covers what the theme has no slot for, and a library upgrade that adds a colour then fails a test, not a page.
+- A rule that targets a library's class names is checked against the installed stylesheet, since names can differ between versions and a rule for a class that does not exist matches nothing and reports no error.
+- Check the layout in the same screenshots: a badge, a percentage or a time that wraps onto two lines ("runnin g", "100 %") needs a wider column and no line break inside it.
 
 ## Checking
 
