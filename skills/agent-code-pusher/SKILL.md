@@ -46,6 +46,7 @@ Plan Mode should leave two durable artifacts, not just an approved message:
 7. Commit: `~/.claude/skills/agent-code-pusher/git-commit "<message>" <files...>`
 8. Push and open/update the PR in one step: `~/.claude/skills/agent-code-pusher/push-to-pr "<title>" "<body>"` — creates the PR on first push, updates its title/description on later pushes, and prints one JSON object on stdout: `{number, url, action}`
 9. If this work is tracked by a GitHub issue, put `Closes rn-ax/<repo>#<issue-number>` (`Refs` when the PR is one step of several) in the PR body passed to `push-to-pr`, so GitHub links the PR to the issue and, for `Closes`, closes it on merge (see the `todo` skill). Combined with the claim comment carrying `session:$CLAUDE_CODE_SESSION_ID`, this makes a PR traceable back to the exact session that opened it.
+   After `push-to-pr`, report the PR and stop waiting. Whoever merges it (the user, or the repo's own pipeline) does so in their own time, and a wait loop for CI or the merge blocks the session so the user cannot reach it. Check the result once when asked or when a background notification arrives.
 10. Keep the worktree until the PR is merged — fixes are often needed after the initial push
 11. Once merged: `builtin cd` back to the main repo root (the directory `sync-main`/`new-worktree` were originally run from), then `~/.claude/skills/agent-code-pusher/remove-worktree <branch-name>` — `git worktree remove` can't remove the directory that's currently the shell's cwd
 
