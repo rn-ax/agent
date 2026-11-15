@@ -35,7 +35,6 @@ Both boxes run GitHub Actions self-hosted runners as native processes (role `git
 |---|---|---|
 | `rn-ax/monocoque` | `/opt/github-runner` | `self-hosted, Linux, X64, contabo` |
 | `rn-ax/windmill` | `/opt/github-runner-windmill` | `self-hosted, Linux, X64, contabo` |
-| `rn-ax/music-library` | `/opt/github-runner-music-library` | `self-hosted, Linux, X64, contabo` |
 | `rn-ax/actions` | `/opt/github-runner-actions` | `self-hosted, Linux, X64, contabo` — **repo is archived, so this runner is currently a no-op**; GitHub blocks Actions execution entirely on archived repos (job stays `queued` forever with zero job records, eventually auto-cancelled — this was the actual root cause of that repo's `mirror-base-images.yml` failures, not a runner problem) |
 
 All run as the same `github-runner` system user (uid/gid consistent across boxes), installed via the vendor's own `svc.sh` as a systemd service named `actions.runner.<org>-<repo>.<hostname>.service`.
