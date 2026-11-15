@@ -16,6 +16,7 @@ Every interface is used on a phone and on a desktop browser, and works well on b
 - Show only what the user needs at that moment. Information that is secondary is left out of lists and rows, or moved behind a tap, so a row stays readable at phone width.
 - Elements take the width of the screen and rearrange as it narrows: a row of buttons wraps or stacks, side-by-side columns become one column in an order that puts the most important thing first, long text wraps or is cut with the full text one tap away.
 - Large or optional sections collapse and expand, so the page does not become a long scroll of everything at once.
+- A table's columns collapse to the ones needed to recognise a row, and what is left still reads in order (see Tables).
 - Touch targets are large enough to hit, and nothing sits where it covers content that has to be reached, such as a fixed label over the bottom of a form.
 
 ### On desktop
@@ -41,6 +42,7 @@ The version label reads `v2026.11.15.73 (3s ago)`: the version, then how long ag
 - Every table opens in its natural order, and every column sorts, by the value and not by the text shown (an ISO time, a number). A table paged by the backend sorts and filters there, so a sort orders every row and not only the page on screen.
 - Filters are checkboxes in a bar above the table, one per filter, labelled by what they narrow to; a ticked filter narrows the list and several narrow it together. A choice of one value (an event type) is a select in the same bar.
 - A time reads as how long ago it was (`5 minutes ago`), with the exact date and time on hover, and its column sorts by the time itself.
+- On a phone a table's columns collapse: the columns that are not needed to recognise a row are hidden (they come back on desktop), and the ones that remain keep an order that still makes sense: the column that identifies the row first, then where it stands (its state or progress), then when, and the row's action last, so a row with the hidden columns removed still reads as one line of meaning. A table is never squeezed until its text breaks (a badge, a percentage or a time wrapping onto two lines): it keeps a minimum width and scrolls sideways only as a last resort. In the Windmill apps a column hides below the tablet width with `hide: Media.MD`.
 
 ## Dark layouts
 
