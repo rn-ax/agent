@@ -15,7 +15,7 @@
 #
 # Usage: tn-api <method> [params-json]
 #   tn-api app.query
-#   tn-api app.query '[["id","=","portal"]]'
+#   tn-api app.query '[["id","=","bookworm"]]'
 #   tn-api app.image.query
 #
 # The params argument is passed as ONE midclt parameter, so a method taking a

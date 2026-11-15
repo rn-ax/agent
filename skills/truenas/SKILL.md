@@ -15,7 +15,7 @@ Reachable at `truenas.machine.rn.ax` (`192.168.1.142`) on the home LAN. That is 
 
 SSH access is configured via **System → Services → SSH** (Running, Start Automatically enabled) and **Credentials → Local Users → `admin` → SSH Public Key**.
 
-**For an ad-hoc middleware API call from an agent session, use `tn-api <method> [params-json]`** (this skill's own directory) rather than hand-crafting `ssh truenas "sudo midclt call ..."` or juggling a TrueNAS API key — e.g. `tn-api app.query` or `tn-api app.query '[["id","=","portal"]]'`. It wraps the exact same `ssh truenas sudo midclt call` access any admin troubleshooting session already uses, with the method/params shell-quoted safely.
+**For an ad-hoc middleware API call from an agent session, use `tn-api <method> [params-json]`** (this skill's own directory) rather than hand-crafting `ssh truenas "sudo midclt call ..."` or juggling a TrueNAS API key — e.g. `tn-api app.query` or `tn-api app.query '[["id","=","bookworm"]]'`. It wraps the exact same `ssh truenas sudo midclt call` access any admin troubleshooting session already uses, with the method/params shell-quoted safely.
 
 A TrueNAS API key is revocable and can get auto-revoked on "incorrect use" elsewhere (e.g. unrelated debugging of a different key can trip it) — SSH root-via-sudo access has no such revocation risk, which is why `tn-api` goes through SSH rather than the API key. This is for interactive/agent-session queries only: a script meant to run unattended on a system with no SSH access of its own (a Windmill job, running in a container) still needs the real websocket+`API_KEY_PLAIN` flow directly, e.g. `rn-ax/windmill`'s `f/truenas/prune_images.py`.
 
