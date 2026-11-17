@@ -181,7 +181,7 @@ def main(
         now = datetime.now(timezone.utc).replace(microsecond=0)
         badge = {
             "lastRun": utc_timestamp(now),
-            "nextRunDue": utc_timestamp(now + timedelta(days=7)),
+            "staleAt": utc_timestamp(now + timedelta(days=5)),
             "icon": "ci:calendar-check",
             "color": "#30d158",
             "staleIcon": "ci:calendar-close",
