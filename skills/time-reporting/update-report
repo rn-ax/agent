@@ -5,10 +5,11 @@
 # ///
 """update-report --date YYYY-MM-DD --type TYPE [--start HH:MM --end HH:MM]
 
-Read and validate data/time-reports.jsonl, then atomically add or replace one
-approved daily report. Work records require start and end times; non-work types
-must omit them. Emits one JSON context object on every path. Exit 0 on success,
-1 on ledger or file errors, and 2 on invalid report arguments.
+Read and validate data/time-reports.jsonl, atomically add or replace one
+approved daily report, then atomically refresh the Übersicht freshness badge.
+Work records require start and end times; non-work types must omit them. Emits
+one JSON context object on every path. Exit 0 on success, 1 on ledger, badge,
+or file errors, and 2 on invalid report arguments.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ import typer
 
 
 REPORT_PATH = Path(__file__).resolve().parents[2] / "data" / "time-reports.jsonl"
+BADGE_PATH = Path.home() / ".config/ubersicht/badges/time-reporting.json"
 FIELDS = {"date", "start_time", "end_time", "type"}
 TYPES = {"work", "non-working day", "sick", "vacation", "flex"}
 app = typer.Typer(add_completion=False, invoke_without_command=True)
@@ -102,6 +104,28 @@ def write_ledger(entries: list[dict[str, str | None]]) -> None:
         raise
 
 
+def utc_timestamp(value: datetime) -> str:
+    return value.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def write_badge(payload: dict[str, Any]) -> None:
+    BADGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_path = tempfile.mkstemp(prefix=f".{BADGE_PATH.name}.", dir=BADGE_PATH.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            json.dump(payload, output, separators=(",", ":"))
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary_path, BADGE_PATH)
+    except BaseException:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 @app.callback()
 def main(
     date_arg: str = typer.Option(..., "--date", help="Helsinki report date (YYYY-MM-DD)"),
@@ -111,11 +135,19 @@ def main(
 ) -> None:
     ctx: dict[str, Any] = {
         "script": "update-report",
-        "args": {"date": date_arg, "type": day_type, "start_time": start, "end_time": end, "report_path": str(REPORT_PATH)},
+        "args": {
+            "date": date_arg,
+            "type": day_type,
+            "start_time": start,
+            "end_time": end,
+            "report_path": str(REPORT_PATH),
+            "badge_path": str(BADGE_PATH),
+        },
         "steps": [],
     }
     exit_code = 0
     validation_complete = False
+    active_step = "validate_report"
     try:
         try:
             parsed_date = date.fromisoformat(date_arg)
@@ -128,30 +160,51 @@ def main(
             source="requested report",
         )
         validation_complete = True
+        active_step = "read_ledger"
         entries = read_ledger()
         ctx["steps"].append({"step": "read_ledger", "entry_count": len(entries)})
         replaced = any(entry["date"] == date_arg for entry in entries)
         entries = [entry for entry in entries if entry["date"] != date_arg]
         entries.append(proposed)
         entries.sort(key=lambda entry: str(entry["date"]), reverse=True)
+        active_step = "write_ledger"
         write_ledger(entries)
         ctx["steps"].append({"step": "write_ledger", "replaced_existing_date": replaced})
+        active_step = "verify_ledger"
         verified = read_ledger()
         saved = next((entry for entry in verified if entry["date"] == date_arg), None)
         if saved != proposed:
             raise RuntimeError("Read-back did not match the requested report")
         ctx["steps"].append({"step": "verify_ledger", "verified": True})
         ctx["record"] = saved
+        active_step = "write_badge"
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        badge = {
+            "lastRun": utc_timestamp(now),
+            "nextRunDue": utc_timestamp(now + timedelta(days=7)),
+            "icon": "ci:calendar-check",
+            "color": "#30d158",
+            "staleIcon": "ci:calendar-close",
+            "staleColor": "#ff3b30",
+        }
+        write_badge(badge)
+        ctx["steps"].append({"step": "write_badge", "path": str(BADGE_PATH)})
+        active_step = "verify_badge"
+        saved_badge = json.loads(BADGE_PATH.read_text(encoding="utf-8"))
+        if saved_badge != badge:
+            raise RuntimeError("Badge read-back did not match the written values")
+        ctx["steps"].append({"step": "verify_badge", "verified": True})
+        ctx["badge"] = saved_badge
     except (OSError, RuntimeError, ValueError) as exc:
         ctx["error"] = {
-            "step": ctx["steps"][-1]["step"] if ctx["steps"] else "validate_or_read_ledger",
+            "step": active_step,
             "type": type(exc).__name__,
             "message": str(exc),
         }
         exit_code = 2 if isinstance(exc, ValueError) and not validation_complete else 1
     except Exception as exc:
         ctx["error"] = {
-            "step": ctx["steps"][-1]["step"] if ctx["steps"] else "update_ledger",
+            "step": active_step,
             "type": type(exc).__name__,
             "message": str(exc),
         }
