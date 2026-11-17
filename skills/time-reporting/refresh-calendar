@@ -1,0 +1,123 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["icalendar>=7.3,<8", "recurring-ical-events>=3.8.2,<4", "typer>=0.15,<1"]
+# ///
+"""refresh-calendar [--date YYYY-MM-DD]
+
+Fetch the private ICS URL from ~/.config/rn-agent/time-reporting-calendar-url,
+overwrite /private/tmp/rn-agent-time-reporting-calendar.ics, then read that file
+and print the events overlapping the requested Helsinki date (today by
+default). Reads the URL config and writes only the temporary ICS file. Exit 0 on
+success, 1 on fetch/parse failure, and 2 on invalid arguments or configuration.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import date, datetime, time, timedelta
+from pathlib import Path
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
+
+import recurring_ical_events
+import typer
+from icalendar import Calendar
+
+
+HELSINKI = ZoneInfo("Europe/Helsinki")
+CONFIG_PATH = Path.home() / ".config/rn-agent/time-reporting-calendar-url"
+ICS_PATH = Path("/private/tmp/rn-agent-time-reporting/calendar.ics")
+MAX_BYTES = 10 * 1024 * 1024
+app = typer.Typer(add_completion=False, invoke_without_command=True)
+
+
+def as_local_datetime(value: date | datetime) -> datetime:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=HELSINKI)
+        return value.astimezone(HELSINKI)
+    return datetime.combine(value, time.min, HELSINKI)
+
+
+def read_events(target: date) -> list[dict[str, str | bool]]:
+    calendar = Calendar.from_ical(ICS_PATH.read_bytes())
+    target_start = datetime.combine(target, time.min, HELSINKI)
+    target_end = target_start + timedelta(days=1)
+    query = recurring_ical_events.of(calendar)
+    components = query.at(target)
+    events: list[dict[str, str | bool]] = []
+    for component in components:
+        if str(component.get("STATUS", "")).upper() == "CANCELLED":
+            continue
+        start_value = component.decoded("DTSTART")
+        end_value = component.decoded("DTEND")
+        start = as_local_datetime(start_value)
+        end = as_local_datetime(end_value)
+        if start >= target_end or end <= target_start:
+            continue
+        all_day = not isinstance(start_value, datetime)
+        events.append({
+            "title": str(component.get("SUMMARY", "(untitled event)")),
+            "start": "all day" if all_day else start.strftime("%H:%M"),
+            "end": "all day" if all_day else end.strftime("%H:%M"),
+            "all_day": all_day,
+        })
+    events.sort(key=lambda event: (str(event["start"]), str(event["title"])))
+    return events
+
+
+@app.callback()
+def main(date_arg: str | None = typer.Option(None, "--date", help="Helsinki date to read (YYYY-MM-DD); defaults to today")) -> None:
+    ctx: dict[str, object] = {
+        "script": "refresh-calendar",
+        "args": {"date": date_arg, "config_path": str(CONFIG_PATH), "ics_path": str(ICS_PATH)},
+        "steps": [],
+    }
+    exit_code = 0
+    active_url = ""
+    try:
+        target = date.fromisoformat(date_arg) if date_arg else datetime.now(HELSINKI).date()
+        ctx["args"]["date"] = target.isoformat()  # type: ignore[index]
+        if not CONFIG_PATH.is_file():
+            raise ValueError(f"Missing calendar URL configuration: {CONFIG_PATH}")
+        if CONFIG_PATH.stat().st_mode & 0o077:
+            raise ValueError(f"Calendar URL configuration must not be accessible by group or others: {CONFIG_PATH}")
+        active_url = CONFIG_PATH.read_text(encoding="utf-8").strip()
+        if not active_url.startswith("https://outlook.office365.com/"):
+            raise ValueError("Calendar URL configuration must contain an Outlook HTTPS feed URL")
+        request = Request(active_url, headers={"User-Agent": "rn-agent-time-reporting/1.0"})
+        with urlopen(request, timeout=30) as response:
+            payload = response.read(MAX_BYTES + 1)
+        if len(payload) > MAX_BYTES:
+            raise ValueError("Calendar feed exceeds the 10 MiB size limit")
+        if b"BEGIN:VCALENDAR" not in payload or b"END:VCALENDAR" not in payload:
+            raise ValueError("Downloaded content is not a complete ICS calendar")
+        ICS_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(ICS_PATH.parent, 0o700)
+        file_descriptor = os.open(ICS_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(file_descriptor, "wb") as calendar_file:
+            calendar_file.write(payload)
+        os.chmod(ICS_PATH, 0o600)
+        ctx["steps"].append({"step": "fetch_and_overwrite", "bytes": len(payload), "path": str(ICS_PATH)})
+        events = read_events(target)
+        ctx["steps"].append({"step": "read_and_filter", "event_count": len(events)})
+        ctx["date"] = target.isoformat()
+        ctx["timezone"] = "Europe/Helsinki"
+        ctx["events"] = events
+    except (ValueError, UnicodeError) as exc:
+        ctx["error"] = {"step": ctx["steps"][-1]["step"] if ctx["steps"] else "validate_or_fetch", "type": type(exc).__name__, "message": str(exc).replace(active_url, "<configured calendar URL>")}
+        exit_code = 2 if isinstance(exc, ValueError) and not ctx["steps"] else 1
+    except Exception as exc:
+        message = str(exc).replace(active_url, "<configured calendar URL>")
+        ctx["error"] = {"step": ctx["steps"][-1]["step"] if ctx["steps"] else "fetch", "type": type(exc).__name__, "message": message}
+        exit_code = 1
+    finally:
+        print(json.dumps(ctx, ensure_ascii=False))
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+if __name__ == "__main__":
+    app()
