@@ -182,10 +182,8 @@ def main(
         badge = {
             "lastRun": utc_timestamp(now),
             "staleAt": utc_timestamp(now + timedelta(days=5)),
-            "icon": "ci:calendar-check",
-            "color": "#30d158",
-            "staleIcon": "ci:calendar-close",
-            "staleColor": "#ff3b30",
+            "icon": "ci:calendar-check:#30d158",
+            "staleIcon": "ci:calendar-close:#ff3b30",
         }
         write_badge(badge)
         ctx["steps"].append({"step": "write_badge", "path": str(BADGE_PATH)})
