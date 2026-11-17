@@ -1,0 +1,197 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["typer>=0.15,<1"]
+# ///
+"""chrome-history --start ISO_DATETIME --end ISO_DATETIME [--profile NAME]...
+
+Read Chrome's local macOS History databases without modifying them. It copies
+each database and SQLite sidecar to a temporary directory before querying.
+The required timestamps must include UTC offsets. The helper searches all Chrome
+profiles by default and emits JSON visits grouped by page. URL query strings
+and fragments are omitted unless --include-query is supplied. Exit 0 on
+success, 1 on database/runtime failure, and 2 on invalid time range or profile.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import sqlite3
+import tempfile
+from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+from zoneinfo import ZoneInfo
+
+import typer
+
+
+CHROME_ROOT = Path.home() / "Library/Application Support/Google/Chrome"
+CHROME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
+app = typer.Typer(add_completion=False, invoke_without_command=True)
+
+
+def parse_timestamp(value: str, field: str) -> datetime:
+    try:
+        result = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field} must be an ISO 8601 timestamp with an explicit UTC offset") from exc
+    if result.tzinfo is None or result.utcoffset() is None:
+        raise ValueError(f"{field} must include an explicit UTC offset, for example +02:00 or Z")
+    return result.astimezone(timezone.utc)
+
+
+def profile_directories(requested: list[str]) -> list[Path]:
+    if not CHROME_ROOT.is_dir():
+        raise ValueError("Chrome profile directory was not found on this Mac")
+    if requested:
+        directories = [CHROME_ROOT / name for name in requested]
+        missing = [name for name, path in zip(requested, directories) if not path.is_dir()]
+        if missing:
+            raise ValueError(f"Chrome profile not found: {', '.join(missing)}")
+        return directories
+    return sorted(
+        path for path in CHROME_ROOT.iterdir()
+        if path.is_dir() and (path.name == "Default" or path.name.startswith("Profile "))
+    )
+
+
+def safe_url(value: str, include_query: bool) -> tuple[str, str]:
+    parts = urlsplit(value)
+    host = parts.hostname or ""
+    if host:
+        host = host.lower()
+        if parts.port:
+            host = f"{host}:{parts.port}"
+    elif parts.scheme not in ("file", "chrome", "about"):
+        host = "(local page)"
+    path = parts.path
+    if parts.scheme == "file":
+        path = "[local file]"
+    query = parts.query if include_query else ""
+    fragment = parts.fragment if include_query else ""
+    display = urlunsplit((parts.scheme, host, path, query, fragment))
+    return display, host or parts.scheme or "(unknown)"
+
+
+def fetch_visits(
+    profiles: list[Path], start_utc: datetime, end_utc: datetime,
+    output_zone: ZoneInfo, include_query: bool, ctx: dict[str, Any],
+) -> list[dict[str, Any]]:
+    chrome_start = int((start_utc - CHROME_EPOCH).total_seconds() * 1_000_000)
+    chrome_end = int((end_utc - CHROME_EPOCH).total_seconds() * 1_000_000)
+    grouped: OrderedDict[tuple[str, str, str], dict[str, Any]] = OrderedDict()
+    profile_counts: list[dict[str, Any]] = []
+
+    for profile in profiles:
+        history_path = profile / "History"
+        if not history_path.is_file():
+            profile_counts.append({"profile": profile.name, "visits": 0, "status": "no History database"})
+            continue
+        try:
+            with tempfile.TemporaryDirectory(prefix="rn-agent-chrome-history-") as temp_dir:
+                snapshot = Path(temp_dir)
+                for suffix in ("", "-journal", "-wal", "-shm"):
+                    source = Path(f"{history_path}{suffix}")
+                    if source.is_file():
+                        shutil.copy2(source, Path(f"{snapshot / 'History'}{suffix}"))
+                uri = (snapshot / "History").as_uri() + "?mode=ro"
+                with sqlite3.connect(uri, uri=True, timeout=3) as connection:
+                    rows = connection.execute(
+                        """SELECT urls.title, urls.url, visits.visit_time
+                           FROM visits JOIN urls ON urls.id = visits.url
+                           WHERE visits.visit_time >= ? AND visits.visit_time <= ?
+                           ORDER BY visits.visit_time""",
+                        (chrome_start, chrome_end),
+                    ).fetchall()
+        except sqlite3.Error as exc:
+            raise RuntimeError(f"Could not read Chrome profile {profile.name}: {exc}") from exc
+        except OSError as exc:
+            raise RuntimeError(f"Could not snapshot Chrome profile {profile.name}: {exc}") from exc
+
+        profile_counts.append({"profile": profile.name, "visits": len(rows), "status": "read"})
+        for title, raw_url, chrome_time in rows:
+            visit_utc = CHROME_EPOCH + timedelta(microseconds=chrome_time)
+            local_time = visit_utc.astimezone(output_zone)
+            display_url, domain = safe_url(raw_url, include_query)
+            page_title = title or domain
+            key = (profile.name, display_url, page_title)
+            timestamp = local_time.isoformat(timespec="seconds")
+            if key not in grouped:
+                grouped[key] = {
+                    "profile": profile.name,
+                    "title": page_title,
+                    "url": display_url,
+                    "domain": domain,
+                    "first_visit": timestamp,
+                    "last_visit": timestamp,
+                    "visit_count": 0,
+                    "visit_times": [],
+                }
+            item = grouped[key]
+            item["last_visit"] = timestamp
+            item["visit_count"] += 1
+            item["visit_times"].append(timestamp)
+
+    ctx["steps"].append({
+        "step": "read_profiles",
+        "profiles": profile_counts,
+        "visit_count": sum(item["visit_count"] for item in grouped.values()),
+        "unique_pages": len(grouped),
+    })
+    return list(grouped.values())
+
+
+@app.callback()
+def main(
+    start: str = typer.Option(..., "--start", help="Inclusive ISO 8601 timestamp with UTC offset"),
+    end: str = typer.Option(..., "--end", help="Inclusive ISO 8601 timestamp with UTC offset"),
+    profile: list[str] = typer.Option([], "--profile", help="Chrome profile name; repeat to select multiple (default: all profiles)"),
+    timezone_name: str = typer.Option("Europe/Helsinki", "--timezone", help="Timezone used in the output"),
+    include_query: bool = typer.Option(False, "--include-query", help="Include URL query strings and fragments"),
+) -> None:
+    ctx: dict[str, Any] = {
+        "script": "chrome-history",
+        "args": {
+            "start": start,
+            "end": end,
+            "profiles": profile,
+            "timezone": timezone_name,
+            "include_query": include_query,
+        },
+        "steps": [],
+    }
+    exit_code = 0
+    try:
+        start_utc = parse_timestamp(start, "--start")
+        end_utc = parse_timestamp(end, "--end")
+        if end_utc < start_utc:
+            raise ValueError("--end must be at or after --start")
+        try:
+            output_zone = ZoneInfo(timezone_name)
+        except Exception as exc:
+            raise ValueError(f"Unknown timezone: {timezone_name}") from exc
+        selected_profiles = profile_directories(profile)
+        ctx["window"] = {
+            "start": start_utc.astimezone(output_zone).isoformat(timespec="seconds"),
+            "end": end_utc.astimezone(output_zone).isoformat(timespec="seconds"),
+        }
+        ctx["timezone"] = timezone_name
+        ctx["pages"] = fetch_visits(selected_profiles, start_utc, end_utc, output_zone, include_query, ctx)
+    except ValueError as exc:
+        ctx["error"] = {"step": "validate_inputs", "type": type(exc).__name__, "message": str(exc)}
+        exit_code = 2
+    except Exception as exc:
+        ctx["error"] = {"step": ctx["steps"][-1]["step"] if ctx["steps"] else "read_profiles", "type": type(exc).__name__, "message": str(exc)}
+        exit_code = 1
+    finally:
+        print(json.dumps(ctx, ensure_ascii=False))
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+if __name__ == "__main__":
+    app()
