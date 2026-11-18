@@ -24,23 +24,45 @@ Use this skill to collaboratively reconstruct and maintain the user's day-by-day
 1. Read the ledger at `data/time-reports.jsonl` if it exists. It has one JSON object per local calendar date. When correcting a date, replace that date's line; do not append a duplicate.
 2. Determine the requested date. For a date range, start from the most recent date requested and move backward, one date per user confirmation. Skip dates already resolved only if the user asks to continue past them.
 3. Parse the CSV with a CSV parser. Sort state changes chronologically after converting timestamps to Helsinki local time. Pair `on` with the next `off` as observed computer-active intervals. Identify gaps and incomplete edges, but do not automatically treat them as breaks or work. If the export begins while the entity is already `on`, the start is unknown. If the current date has no recorded end, use the current time in `Europe/Helsinki` as the provisional end and refresh it to the current time on each later turn until the user approves the report. For a past date, an open interval has an unknown end; do not invent one.
-4. Present the date, source coverage, computer-active intervals and gaps in Helsinki local time, and any open or truncated interval. Use the selected calendar feed to identify meetings, treating non-canceled meetings as attended under the user's standing instruction. Split computer-inactive gaps around meetings; meeting time counts as work. Apply the break-merging rules below before deciding which gaps meet the 30-minute deduction threshold. Deduct only confirmed non-working breaks of at least 30 minutes after merging. Ask about other work away from the computer (such as unscheduled phone meetings), computer use outside work, and the user's actual start and finish as needed. Treat the user's recollection and corrections as part of the evidence. Iterate on this date until the user agrees with the reconstruction; do not force a proposed total from the sensor data alone.
-5. The report for a work day is one continuous time period, not a list of work intervals. Once the user has identified the work start and finish and which merged or standalone breaks of 30 minutes or more were genuinely non-working, calculate the adjusted end by subtracting only those gaps from the end. Round both the start and adjusted end to the nearest half hour. Show the evidence timeline first, then show the single adjusted period on its own separate line for confirmation. Do not subtract computer-inactive gaps that the user says were work, and do not add computer-active time the user says was outside work. For a non-working, sick, vacation, or flex day, confirm the classification explicitly without inventing a work period. Never infer non-working, sick, vacation, or flex status from an empty activity log.
-6. Do not write a JSONL record, even as a draft, until the user approves the single work period or day classification. Approval also means the report has been persisted, so the ledger does not track a separate reported status. Add or replace exactly one approved date with `uv run --script skills/time-reporting/update-report --date YYYY-MM-DD --type TYPE [--start HH:MM --end HH:MM]`. The helper validates and atomically updates the ledger with only date, start time, end time, and type, then refreshes and verifies the Übersicht badge. If badge refresh fails after the ledger write, report that the date was saved but the badge update failed; rerun the same command to repair the badge. Keep all activity-log analysis and supporting evidence in the conversation; do not store it in the ledger. For non-working, sick, vacation, and flex days, use null start and end times. Never infer these classifications from an empty activity log.
-7. Show the saved record, then automatically continue with the next earlier date without asking whether to proceed. Continue one date at a time, presenting each timeline for the user's review and never writing its report before approval. Stop at the requested earliest date, or earlier if the available export does not contain an eligible date under the log-completeness rules; explain the coverage gap.
+4. Present the date, source coverage, computer-active intervals and gaps in Helsinki local time, and any open or truncated interval. Split gaps around attended calendar meetings and other work away from the computer. Ask about uncertain gaps, computer use outside work, and actual start and finish; the user's corrections override sensor evidence. Apply the break rules below and resolve the timeline with the user.
+5. For a work day, calculate the single Kellokortti entry using the calculation below. Show the evidence timeline first, then the entry on its own line with the expected credited hours for confirmation. For a non-working, sick, vacation, or flex day, confirm the classification explicitly; never infer it from an empty activity log.
+6. Only after the user approves the period or classification, add or replace that date with `uv run --script skills/time-reporting/update-report --date YYYY-MM-DD --type TYPE [--start HH:MM --end HH:MM]`. Never save a draft. The helper validates and atomically updates the ledger, then refreshes and verifies the Übersicht badge. If badge refresh fails after the ledger write, report that the date was saved but the badge update failed; rerun the same command to repair the badge.
+7. Show the saved record, then automatically present the next earlier date for review. Stop at the requested earliest date or when the export has no further eligible date under the coverage rules; explain any coverage gap.
 
 ## Break merging
 
 After accounting for calendar meetings and user-confirmed work away from the computer, merge adjacent candidate breaks when the intervening computer-active interval is at most 10 minutes, inclusive. Repeat across consecutive qualifying intervals so a chain becomes one candidate break. The merged break spans from the first break's start to the last break's end, including the intervening computer activity. Never merge across an attended meeting or other user-confirmed work, even if it lasts 10 minutes or less; the user's corrections override sensor-based merging.
 
-Apply the 30-minute threshold only after merging, using exact timestamps rather than rounded display times. For example, inactivity from 12:00–12:20 and 12:30–12:45 merges into a 45-minute candidate break, including the 10-minute computer-active interval. An intervening activity interval longer than 10 minutes keeps breaks separate. Ignore merged or standalone breaks shorter than 30 minutes. Show the merged spans and included computer activity in the timeline and confirm that they were non-working before deducting their full duration. Round only the final report start and adjusted end to the nearest half hour.
+Apply the 30-minute threshold only after merging, using exact timestamps rather than rounded display times. For example, inactivity from 12:00–12:20 and 12:30–12:45 merges into a 45-minute candidate break, including the 10-minute computer-active interval. An intervening activity interval longer than 10 minutes keeps breaks separate. Ignore merged or standalone breaks shorter than 30 minutes. Show the merged spans and included computer activity in the timeline and confirm that they were non-working before deducting their full duration.
+
+## Kellokortti calculation
+
+Report one continuous period. Under the user's observed Kellokortti configuration, the entered span automatically loses 30 minutes for lunch (08:00–16:00 credits 7.5 hours). Compensate for that deduction once per work day, after subtracting actual qualifying breaks, including lunch:
+
+```text
+net work = actual finish − actual start − confirmed deductible breaks
+entry start = actual start
+entry end = actual finish − confirmed deductible breaks + 30 minutes
+```
+
+Round the entry start and entry end to the nearest half hour only after this calculation. Expected credited hours equal the rounded entry span minus Kellokortti's 30-minute deduction. The entry end is a reporting adjustment, not the actual finish. Do not subtract gaps the user confirms were work or include computer use the user confirms was outside work.
+
+For an actual 08:00–16:00 day:
+
+| Confirmed deductible breaks | Kellokortti entry | Credited hours |
+| --- | --- | --- |
+| None | 08:00–16:30 | 8 |
+| 30-minute lunch | 08:00–16:00 | 7.5 |
+| 60 minutes in total | 08:00–15:30 | 7 |
+
+These examples assume the automatic deduction applies. If Kellokortti shows a different deduction for a particular entry, reconcile it before approval rather than applying the compensation twice.
 
 ## Ledger format
 
 Store records in `data/time-reports.jsonl`, one compact JSON object per confirmed date, with only these fields:
 
 ```json
-{"date":"2026-11-06","start_time":"10:02","end_time":"12:51","type":"work"}
+{"date":"2026-11-06","start_time":"08:00","end_time":"16:00","type":"work"}
 ```
 
-`date` is the Helsinki local date. `start_time` and `end_time` are the confirmed single period's local clock times in `HH:mm` format; use `null` for non-working, sick, vacation, or flex days. `type` is `work`, `non-working day`, `sick`, `vacation`, or `flex`. Do not add analysis, evidence, notes, reported status, or other fields to the JSONL record.
+`date` is the Helsinki local date. `start_time` and `end_time` are the approved Kellokortti entry's local clock times in `HH:mm` format; use `null` for non-working, sick, vacation, or flex days. `type` is `work`, `non-working day`, `sick`, `vacation`, or `flex`. Keep analysis and supporting evidence in the conversation. Approval means the report is persisted; do not add a reported status, notes, or other fields to the JSONL record.
