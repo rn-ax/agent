@@ -4,6 +4,8 @@ Claude Code skills, kept here as the source of truth and symlinked into `~/.clau
 
 Do not create or use Git worktrees for this repository. Make changes directly in the primary checkout on a non-default branch. `~/.claude/skills/<name>` symlinks point at this checkout directly, so edits made in a separate worktree won't be reflected in the live skills a session actually loads until they're merged back into this checkout's `main`.
 
+Create pull requests for changes in this repository as ready for review, not as drafts. If the publication helper creates a draft, mark it ready before handoff.
+
 Read `skills/writing-skills/SKILL.md` before creating or changing anything under `skills/`.
 
 Python tests live in `tests/` and run with `mise run test`; CI runs the same task on every pull request.
