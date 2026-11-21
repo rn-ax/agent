@@ -37,7 +37,7 @@ MAX_FIELD = 500
 
 
 def hb(method, path, body=None):
-    cmd = [HB, method, path] + (["-d", json.dumps(body)] if body is not None else [])
+    cmd = [HB, "--inventory", "household", method, path] + (["-d", json.dumps(body)] if body is not None else [])
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode or not r.stdout.strip():
         raise RuntimeError(f"{method} {path} failed: {(r.stderr or r.stdout).strip()[:200]}")
