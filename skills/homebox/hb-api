@@ -1,26 +1,39 @@
 #!/usr/bin/env bash
-# Authenticated Homebox REST API wrapper, using this account's Homebox token
-# and base URL (the "Homebox" item in the "Agent" 1Password vault; see the
-# `rn-config` skill for the item conventions this follows).
-# Usage: hb-api <method> <path> [curl-args...]
-#   hb-api GET /entities?q=mac&pageSize=5
-#   hb-api POST /tags -d '{"name": "electronics"}'
-#   hb-api POST /entities/<id>/attachments -F file=@manual.pdf -F type=manual -F name=Manual
+# Authenticated Homebox REST API wrapper. Each inventory is a separate Homebox user with its own
+# collection and API token, so the call names the inventory it acts on and nothing is inferred:
+#   household  the home inventory: the "Homebox" item in the "Agent" 1Password vault, `password` field
+#   diy        the DIY parts inventory: the same item's DIY section, `api token` field
+# Both use the item's base URL (the first `urls` entry); see the `rn-config` skill for the item
+# conventions this follows.
+# Usage: hb-api --inventory household|diy <method> <path> [curl-args...]
+#   hb-api --inventory household GET /entities?q=mac&pageSize=5
+#   hb-api --inventory diy POST /tags -d '{"name": "MCU"}'
+#   hb-api --inventory diy POST /entities/<id>/attachments -F file=@datasheet.pdf -F type=attachment -F name=Datasheet
 #
-# <path> is relative to <base_url>/api/v1 and must start with /. A multipart
-# upload (-F) needs the Content-Type header curl generates itself, so the
-# JSON default is only applied when no -F is passed. The `${arr[@]+...}`
-# expansion keeps the empty array safe under `set -u` on macOS's bash 3.2.
+# <path> is relative to <base_url>/api/v1 and must start with /. A missing or unknown inventory
+# exits 2 before anything is read or sent. A multipart upload (-F) needs the Content-Type header
+# curl generates itself, so the JSON default is only applied when no -F is passed. The
+# `${arr[@]+...}` expansion keeps the empty array safe under `set -u` on macOS's bash 3.2.
 set -euo pipefail
 
-method="${1:?Usage: hb-api <method> <path> [curl-args...]}"
-path="${2:?Usage: hb-api <method> <path> [curl-args...]}"
-shift 2
+usage="Usage: hb-api --inventory household|diy <method> <path> [curl-args...]"
+[[ "${1:-}" == "--inventory" ]] || { echo "$usage" >&2; exit 2; }
+inventory="${2:-}"
+case "$inventory" in
+	household) token_filter='.fields[] | select(.id=="password") | .value' ;;
+	diy) token_filter='.fields[] | select(.label=="api token") | .value' ;;
+	*) echo "$usage" >&2; exit 2 ;;
+esac
+[[ $# -ge 4 ]] || { echo "$usage" >&2; exit 2; }
+method="$3"
+path="$4"
+shift 4
 
 item_json="$(~/tasks/op-service-account item get Homebox --vault Agent --format json --reveal)"
 base_url="$(jq -r '.urls[0].href' <<<"$item_json")"
 base_url="${base_url%/}"
-token="$(jq -r '.fields[] | select(.id=="password") | .value' <<<"$item_json")"
+token="$(jq -r "$token_filter" <<<"$item_json")"
+[[ -n "$token" && "$token" != "null" ]] || { echo "hb-api: no token for inventory '$inventory' in the Homebox item" >&2; exit 1; }
 
 content_type=(-H "Content-Type: application/json")
 for arg in "$@"; do
