@@ -15,17 +15,44 @@ The DIY inventory is a second Homebox user with its own collection, "DIY parts",
 
 Credentials: the DIY section of the "Homebox" item in the "Agent" 1Password vault holds the DIY user's login `password` and its `api token`.
 
+## What is recorded
+
+An item in the inventory means the user has the part, so no quantities are kept. A kit is recorded as the individual parts in it, each its own item, because one value can run out while the rest of the kit remains. When a part runs out the item is archived (`archived: true`), which hides it from default searches and keeps its record; a part that is bought again is un-archived. The inventory has no locations and no rooms.
+
+## Categories
+
+Categories are nested tags, and each item carries exactly one leaf tag. Filtering by a top-level tag returns the items under all of its leaves (`GET /entities?tags=<tag id>`).
+
+| Category | Leaf tags |
+|---|---|
+| Semiconductors | Transistors, Diodes, MOSFETs, Voltage Regulators |
+| Passives | Resistors, Electrolytic Capacitors, Ceramic Capacitors, Potentiometers |
+| Optoelectronics | LEDs, IR Emitters, IR Receivers |
+| Microcontrollers | ESP32 Boards |
+| Power | Buck Converters, USB-C Power Delivery, Battery Holders |
+| Connectors | DC Jacks and Plugs, Wire Connectors, USB-C Parts, Battery Snaps |
+| Switches | Tactile Switches, Limit Switches, Touch Sensors |
+| Modules | Level Shifters, Displays, Sensor Kits |
+| Motors | Stepper Motors, Servos |
+| Lighting | Lamps |
+| Household Tools | Soldering, Bench Equipment, 3D Printing, Hand and Power Tools |
+
+A part that fits no leaf gets a new leaf under the closest category, or a new category when none fits. Status tags are `Ordered` and `Needs Info`.
+
 ## Recording a part
 
-Follow the `homebox` skill's two-call create (`POST /entities`, then `PUT /entities/{id}` with the full body), with these conventions for DIY parts:
+Follow the `homebox` skill's two-call create (`POST /entities`, then `PUT /entities/{id}` with the full body), with these conventions:
 
-- **One item per part type.** Boards and modules are one item each (`ESP32-C3 SuperMini`). Bulk parts are one item per value or type with the count in `quantity` (`Resistor 100 Ω 1/4 W`, `LED 5 mm IR 940 nm`).
-- **Specs in custom fields**, with units, named consistently across items (check `GET /entities/fields` first): `Voltage`, `Interface`, `Package`, `Pinout`, `Max Current`, `Datasheet` (markdown link). The 500-character field limit applies.
-- **Locations** are where the part is stored (drawer, box), nested as in the household inventory.
-- **Tags** stay a small reused set, such as `MCU`, `Sensor`, `IR`, `Passive`, `Tool`, `Low Stock`, and `Ordered` for parts bought and not yet delivered.
-- **Datasheets** are attached as `attachment` (pinouts and ratings); a link in `Datasheet` is enough when the PDF is large or unstable.
-- **Quantity follows use.** When a project uses parts up, the count is updated in the same session.
+- **Names** state the part and its distinguishing value: `2N2222A transistor`, `Resistor 4.7 kΩ 1/4 W 1%`, `Electrolytic capacitor 100 µF 16 V`.
+- **Custom fields** carry specs with their units: `Value`, `Voltage`, `Package`, `Source Kit` (the kit or bag the part came in). Check `GET /entities/fields` before inventing a name. The 500-character field limit applies.
+- **An ordered part** is created at once with the `Ordered` tag and an `Expected Delivery` field, and both are removed when it arrives.
+- **An unconfirmed fact** (a value read from a photo that may be wrong, a missing detail) is recorded with the `Needs Info` tag and a `Missing Info` field saying what to check.
+- **Datasheets** are attached as `attachment`, or linked in a `Datasheet` field when the PDF is large or unstable.
+
+## Household tools
+
+The tools the user uses for DIY work (soldering iron, bench power supply, multimeter, 3D printer, drill, glue gun) are recorded in the household inventory. The DIY inventory holds a link-only stub for each under the `Household Tools` category, named like the household item, with a `Household Item` field linking to it, so a DIY search finds the tool. Specs are read from the household inventory with `hb-api --inventory household GET ...` and never copied into the stub. A new tool that matters for DIY work gets a stub the same way. Writes go to the inventory named in the call and never cross over.
 
 ## Suggesting parts
 
-Search the collection with `hb-api --inventory diy GET '/entities?q=<term>'` and by tag, state what is on hand and what a build still needs, and name the exact part and quantity to buy for the gap. Never claim the user lacks a part before searching.
+Search the collection with `hb-api --inventory diy GET '/entities?q=<term>'` or by category tag, state what is on hand and what a build still needs, and name the exact part to buy for the gap. Never claim the user lacks a part before searching, and check the household tools before suggesting a tool purchase. A photodiode in the inventory is not a demodulating IR receiver, so a build that decodes remote controls needs a TSOP-type receiver.
