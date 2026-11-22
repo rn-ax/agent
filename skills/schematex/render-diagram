@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""Render a Schematex text file (a standard diagram) to SVG and a standalone HTML page.
+
+Parses the DSL with the pinned `schematex` npm package, and only when the parse is valid writes
+`<name>.svg` and `<name>.html` (and `<name>.png` with --png, for looking at the drawing) into the
+output directory. The HTML page holds the drawing and the DSL source, and is also valid as the
+content of a published Artifact (it starts with a <title> and has no <html> or <body> tags).
+
+Usage: render-diagram <dsl-file> [--out-dir DIR] [--png]
+
+`<name>` is the DSL file name without its extension. Without --out-dir the files go into a new
+directory under /tmp/schematex/, so nothing in the repository changes and runs never collide;
+with --out-dir, existing files with the same names are overwritten and nothing else in the directory
+is touched. The context reports the directory and a `url` (file://) for the HTML page, which is the
+link to give the user.
+
+Needs `node`, `npm` and `gh` on PATH. Schematex is the rn-ax/schematex fork, installed from the tarball
+of its newest GitHub Release (install scripts disabled) into ~/.cache/rn-agent/schematex/<tag>; a
+newer release is installed on first use and older ones are left in place. --png needs `inkscape`.
+
+Prints one JSON context on stdout: the arguments, the steps, the parser's diagnostics, the files
+written and the page `url`. Exit 0 when the DSL is valid, 1 when it is not or a step failed (the diagnostics carry the
+parser's line-numbered messages), 2 for a usage error.
+"""
+import html
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+SCHEMATEX_REPO = "rn-ax/schematex"
+CACHE_ROOT = os.path.expanduser("~/.cache/rn-agent/schematex")
+RENDER_JS = (
+    "const {renderResult}=require('schematex');"
+    "const dsl=require('fs').readFileSync(process.argv[1],'utf8');"
+    "const r=renderResult(dsl);"
+    "process.stdout.write(JSON.stringify({status:r.status,diagnostics:r.diagnostics,svg:r.svg}));"
+)
+
+PAGE = """<meta charset="utf-8">
+<title>{title}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root {{ --bg: #f3f5f4; --fg: #1b2523; --muted: #5a6a66; --line: #cdd6d3; --card: #f6f4ec; }}
+@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {{ --bg: #101615; --fg: #e5ecea; --muted: #9db0ab; --line: #2b3835; color-scheme: dark; }} }}
+:root[data-theme="dark"] {{ --bg: #101615; --fg: #e5ecea; --muted: #9db0ab; --line: #2b3835; color-scheme: dark; }}
+body {{ background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; line-height: 1.5;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }}
+main {{ max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }}
+h1 {{ margin: 0; font-size: 1.5rem; text-wrap: balance; }}
+figure {{ margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; overflow-x: auto; }}
+figure svg {{ display: block; width: 100%; height: auto; min-width: 640px; }}
+details {{ color: var(--muted); }}
+pre {{ overflow-x: auto; background: var(--card); color: #1b2523; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 0.85rem; }}
+</style>
+<main>
+<h1>{title}</h1>
+<figure>{svg}</figure>
+<details><summary>Schematex source</summary><pre>{source}</pre></details>
+</main>
+"""
+
+
+def build_page(title, svg, source):
+    """The standalone HTML page for one rendered drawing."""
+    return PAGE.format(title=html.escape(title), svg=svg, source=html.escape(source))
+
+
+def dsl_title(source, fallback):
+    """The text of the DSL's `title:` line, or the fallback when there is none."""
+    m = re.search(r"^\s*title:\s*(.+?)\s*$", source, re.M)
+    return m.group(1) if m else fallback
+
+
+def usage_error(message):
+    print(message, file=sys.stderr)
+    print("Usage: render-diagram <dsl-file> [--out-dir DIR] [--png]", file=sys.stderr)
+    sys.exit(2)
+
+
+def parse_args(argv):
+    dsl, out_dir, png = None, None, False
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--png":
+            png = True
+        elif a == "--out-dir":
+            i += 1
+            if i >= len(argv):
+                usage_error("--out-dir needs a directory")
+            out_dir = argv[i]
+        elif a.startswith("--") or dsl is not None:
+            usage_error(f"unexpected argument {a}")
+        else:
+            dsl = a
+        i += 1
+    if not dsl:
+        usage_error("render-diagram needs a DSL file")
+    return dsl, out_dir, png
+
+
+def latest_tag():
+    r = subprocess.run(["gh", "release", "list", "--repo", SCHEMATEX_REPO, "--limit", "1", "--json", "tagName",
+                        "--jq", ".[0].tagName"], capture_output=True, text=True)
+    tag = r.stdout.strip()
+    if r.returncode or not tag:
+        raise RuntimeError(f"no release found in {SCHEMATEX_REPO}: {r.stderr.strip()[:200]}")
+    return tag
+
+
+def ensure_schematex(step):
+    """Install the newest fork release into its own cache directory unless it is already there."""
+    for tool in ("node", "npm", "gh"):
+        if not shutil.which(tool):
+            raise RuntimeError(f"{tool} is not on PATH")
+    tag = latest_tag()
+    cache = os.path.join(CACHE_ROOT, tag)
+    if not os.path.exists(os.path.join(cache, "node_modules", "schematex", "package.json")):
+        os.makedirs(CACHE_ROOT, exist_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = subprocess.run(["gh", "release", "download", tag, "--repo", SCHEMATEX_REPO, "--pattern", "*.tgz", "--dir", tmp],
+                               capture_output=True, text=True)
+            tarballs = sorted(Path(tmp).glob("*.tgz"))
+            if r.returncode or not tarballs:
+                raise RuntimeError(f"download of {tag} failed: {r.stderr.strip()[:200]}")
+            os.makedirs(cache, exist_ok=True)
+            r = subprocess.run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", cache, str(tarballs[0])],
+                               capture_output=True, text=True)
+            if r.returncode:
+                shutil.rmtree(cache, ignore_errors=True)
+                raise RuntimeError(f"npm install failed: {r.stderr.strip()[:300]}")
+        step("schematex", tag=tag, installed=True)
+    else:
+        step("schematex", tag=tag, installed=False)
+    return cache
+
+
+def render(dsl_path, cache):
+    env = dict(os.environ, NODE_PATH=os.path.join(cache, "node_modules"))
+    r = subprocess.run(["node", "-e", RENDER_JS, dsl_path], capture_output=True, text=True, env=env)
+    if r.returncode:
+        raise RuntimeError(f"node failed: {r.stderr.strip()[:300]}")
+    return json.loads(r.stdout)
+
+
+def main():
+    dsl_path, out_dir, want_png = parse_args(sys.argv[1:])
+    ctx = {"script": "render-diagram", "args": {"dsl": dsl_path, "out_dir": out_dir, "png": want_png,
+                                           "schematex_repo": SCHEMATEX_REPO}, "steps": []}
+
+    def step(name, **data):
+        ctx["steps"].append({"step": name, **data})
+
+    code = 0
+    try:
+        if not os.path.isfile(dsl_path):
+            raise RuntimeError(f"{dsl_path} is not a file")
+        if want_png and not shutil.which("inkscape"):
+            raise RuntimeError("--png needs inkscape on PATH")
+        source = open(dsl_path, encoding="utf-8").read()
+        cache = ensure_schematex(step)
+        result = render(os.path.abspath(dsl_path), cache)
+        ctx["diagnostics"] = result["diagnostics"]
+        step("parse", status=result["status"])
+        if result["status"] != "valid" or not result.get("svg"):
+            code = 1
+            ctx["error"] = {"step": "parse", "type": "InvalidDsl", "message": f"parser status {result['status']}"}
+        else:
+            name = os.path.splitext(os.path.basename(dsl_path))[0]
+            if not out_dir:
+                os.makedirs("/tmp/schematex", exist_ok=True)
+                out_dir = tempfile.mkdtemp(prefix=name + "-", dir="/tmp/schematex")
+            os.makedirs(out_dir, exist_ok=True)
+            ctx["out_dir"] = os.path.abspath(out_dir)
+            files = {"svg": os.path.join(out_dir, name + ".svg"), "html": os.path.join(out_dir, name + ".html")}
+            open(files["svg"], "w", encoding="utf-8").write(result["svg"])
+            open(files["html"], "w", encoding="utf-8").write(build_page(dsl_title(source, name), result["svg"], source))
+            if want_png:
+                files["png"] = os.path.join(out_dir, name + ".png")
+                subprocess.run(["inkscape", files["svg"], "--export-type=png", "--export-width=1500",
+                                "--export-background=white", "-o", files["png"]], capture_output=True, check=True)
+            ctx["files"] = files
+            ctx["url"] = Path(files["html"]).resolve().as_uri()
+            step("write", files=sorted(files))
+    except Exception as e:
+        last = ctx["steps"][-1]["step"] if ctx["steps"] else "start"
+        ctx["error"] = {"step": last, "type": type(e).__name__, "message": str(e)}
+        code = 1
+    finally:
+        print(json.dumps(ctx, ensure_ascii=False))
+    sys.exit(code)
+
+
+if __name__ == "__main__":
+    main()
