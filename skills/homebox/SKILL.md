@@ -183,6 +183,16 @@ Every product added after the initial mass migration gets a complete record in t
 5. Attach the documents worth keeping and the product photos (`-F type=photo`): `hb-api POST /entities/{id}/attachments -F file=@x.pdf -F type=manual -F name='Title'`.
 6. `GET /entities/{id}` and check the result; for a batch, check `GET /entities?pageSize=50` too.
 
+## Specs found while working on something else
+
+Specs the agent reads for an item the user owns, such as a manual, a datasheet or a vendor page consulted to decide whether a tool fits a job, are written into that item's record during the same task.
+
+- The item is found with `GET /entities?q=<name>&includeArchived=true`, and a missing record is created per "Adding an item".
+- Values go into the built-in fields and the reused custom fields from `GET /entities/fields`, each with its unit, following the field limits in "Behaviour worth knowing".
+- A `Specs Source` field names where the values came from, such as a Paperless document id or a vendor page.
+- Documents that the table in "Documents worth attaching" lists are attached to the record.
+- The record is read back after the `PUT`, and the reply to the user says it was updated.
+
 ## Behaviour worth knowing
 
 - Locations take asset IDs from the same sequence as items, so IDs are not contiguous across items.
