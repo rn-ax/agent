@@ -9,7 +9,7 @@ content of a published Artifact (it starts with a <title> and has no <html> or <
 Usage: render-diagram <dsl-file> [--out-dir DIR] [--png]
 
 `<name>` is the DSL file name without its extension. Without --out-dir the files go into a new
-directory under /tmp/standard-diagram/, so nothing in the repository changes and runs never collide;
+directory under /tmp/schematex/, so nothing in the repository changes and runs never collide;
 with --out-dir, existing files with the same names are overwritten and nothing else in the directory
 is touched. The context reports the directory and a `url` (file://) for the HTML page, which is the
 link to give the user.
@@ -173,8 +173,8 @@ def main():
         else:
             name = os.path.splitext(os.path.basename(dsl_path))[0]
             if not out_dir:
-                os.makedirs("/tmp/standard-diagram", exist_ok=True)
-                out_dir = tempfile.mkdtemp(prefix=name + "-", dir="/tmp/standard-diagram")
+                os.makedirs("/tmp/schematex", exist_ok=True)
+                out_dir = tempfile.mkdtemp(prefix=name + "-", dir="/tmp/schematex")
             os.makedirs(out_dir, exist_ok=True)
             ctx["out_dir"] = os.path.abspath(out_dir)
             files = {"svg": os.path.join(out_dir, name + ".svg"), "html": os.path.join(out_dir, name + ".html")}

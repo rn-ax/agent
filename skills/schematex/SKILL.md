@@ -1,15 +1,15 @@
 ---
-name: standard-diagram
-description: Use whenever the user wants a diagram drawn from text, above all a breadboard wiring diagram for a DIY circuit, and also a circuit schematic, flowchart, genogram, timeline, state or sequence diagram, org chart, floor plan or any other standard diagram type. The diagram is written as a Schematex DSL file that stays in the project, and `render-diagram` turns it into an SVG and a standalone HTML page in /tmp for the user to open. This skill holds the Schematex DSL conventions, the breadboard grammar and its gaps, and the workflow, so read it before writing a diagram.
+name: schematex
+description: Use whenever the user mentions Schematex or wants a diagram drawn from text, above all a breadboard wiring diagram for a DIY circuit, and also a circuit schematic, flowchart, genogram, timeline, state or sequence diagram, org chart, floor plan or any other standard diagram type. The diagram is written as a Schematex DSL file that stays in the project, and `render-diagram` turns it into an SVG and a standalone HTML page in /tmp for the user to open. This skill holds the Schematex DSL conventions, the breadboard grammar and its gaps, and the workflow, so read it before writing a diagram.
 ---
 
-# Standard diagrams with Schematex
+# Schematex
 
 [Schematex](https://schematex.js.org) (used through the `rn-ax/schematex` fork) turns a short text DSL into an SVG for 52 standard diagram types (breadboard, circuit schematic, flowchart, genogram, timing, state, sequence, org chart, floor plan and more). The first keyword of the file picks the type, and each type's grammar is on `https://schematex.js.org/docs/<type>`. A diagram is the DSL file, which belongs in the project it illustrates (an experiment's `docs/`, for example) and is versioned there. The rendered files are rebuilt from it on demand and are not committed.
 
 ## Rendering
 
-`render-diagram <dsl-file> [--out-dir DIR] [--png]` (this skill's directory) parses the file and writes `<name>.svg` and `<name>.html` into a new directory under `/tmp/standard-diagram/`, or into `--out-dir`. Its JSON context carries `url`, a `file://` link to the page, and `diagnostics`, the parser's line-numbered messages; exit 1 means the DSL is invalid and nothing is written. Schematex is the `rn-ax/schematex` fork: the script installs the tarball of its newest GitHub Release into `~/.cache/rn-agent/schematex/<tag>` with install scripts disabled, and needs `node`, `npm` and `gh`. `--png` adds a PNG for looking at the drawing (needs `inkscape`).
+`render-diagram <dsl-file> [--out-dir DIR] [--png]` (this skill's directory) parses the file and writes `<name>.svg` and `<name>.html` into a new directory under `/tmp/schematex/`, or into `--out-dir`. Its JSON context carries `url`, a `file://` link to the page, and `diagnostics`, the parser's line-numbered messages; exit 1 means the DSL is invalid and nothing is written. Schematex is the `rn-ax/schematex` fork: the script installs the tarball of its newest GitHub Release into `~/.cache/rn-agent/schematex/<tag>` with install scripts disabled, and needs `node`, `npm` and `gh`. `--png` adds a PNG for looking at the drawing (needs `inkscape`).
 
 Workflow:
 1. Write or edit the DSL file in the project.

@@ -6,7 +6,7 @@ import pytest
 
 from conftest import REPO
 
-SCRIPT = "skills/standard-diagram/render-diagram"
+SCRIPT = "skills/schematex/render-diagram"
 
 
 @pytest.fixture
